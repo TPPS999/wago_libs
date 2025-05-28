@@ -1,0 +1,202 @@
+# WagoAppTime Library v1.7.3.5
+
+## Overview
+Time and date handling library for WAGO PLCs with unified system time and RTC operations.
+
+**Key Features:**
+- Unified absolute time handling (no separate realtime/systemtime)
+- Standard and high-resolution time operations
+- Timezone management with automatic DST
+- Calendar calculations and conversions
+
+## Core Functions
+
+### Time Retrieval
+- `FuGetDateAndTime()` - POSIX time (UT, seconds since 1970)
+- `FuGetLongTime()` - High-res time (LTIME, milliseconds since 1970)
+- `FuGetSystemTime()` - 32-bit system time (milliseconds, 49-day overflow)
+- `FuGetLocalDateAndTime()` - Local time with timezone info
+- `FuGetLocalTimeComponents()` - Split local time into components
+
+### Time Setting
+- `FuSetClockFromDateAndTime(DATE_AND_TIME)` - Set from POSIX time
+- `FuSetClockFromLTime(LTIME)` - Set from high-res time
+- `FuSetClockFromLocalDateAndTime(DATE, TOD)` - Set from local time
+- `FuSetClockFromTimeComponents(typWagoTimeComponents)` - Set from components
+
+### Time Calculations
+- `FuDateAdjustment(DATE, years, months, weeks, days)` - Adjust date
+- `FuTimeAdjustment(TOD, hours, minutes, seconds)` - Adjust time
+- `FuDateTimeAdjustment(DT, years, months, weeks, days, hours, minutes, seconds)` - Adjust datetime
+
+### Time Differences
+- `FuSubtractDT(DT1, DT2)` - Subtract datetime (signed seconds)
+- `FuDifferenceDT(DT1, DT2)` - Difference datetime (positive seconds)
+- `FuSubtractDATE(DATE1, DATE2)` - Subtract dates (signed days)
+- `FuDifferenceDATE(DATE1, DATE2)` - Difference dates (positive days)
+- `FuTimeDifference(TOD1, TOD2)` - Time difference (positive seconds)
+
+### Calendar Functions
+- `FuCalendarWeek_ISO8601(DATE)` - ISO week number
+- `FuWeekDay_ISO8601(DATE)` - ISO weekday (1=Monday...7=Sunday)
+- `FuIsLeapYear(UINT)` - Check leap year
+- `FuDaysInMonth(UINT, UINT)` - Days in month/year
+- `FuYearBegin(DATE)` - January 1st of year
+- `FuYearEnd(DATE)` - December 31st of year
+- `FuMonthBegin(DATE)` - First day of month
+- `FuMonthEnd(DATE)` - Last day of month
+
+### Weekday Operations
+- `FuNextWeekday(DATE, UINT)` - Next occurrence of weekday
+- `FuPreviousWeekday(DATE, UINT)` - Previous occurrence of weekday
+- `FuAnyDayOfWeek(DATE, INT)` - Any weekday (+ = future, - = past)
+- `FuWeekdayOfMonth(DATE, UINT, UINT)` - Nth weekday of month
+- `FuWeekdayOfYear(DATE, UINT, UINT, UINT, UINT)` - Recurring weekday
+
+### Format Conversions
+- `FuFormatToDATE(UINT, UINT, UINT)` - Create DATE from components
+- `FuFormatToTOD(UINT, UINT, UINT)` - Create TOD from components
+- `FuFormatToDT(UINT, UINT, UINT, UINT, UINT, UINT)` - Create DT from components
+- `FuSetDT(DATE, TOD)` - Combine DATE and TOD to DT
+
+### Component Extraction
+- `FuYear(DATE)` - Extract year
+- `FuMonth(DATE)` - Extract month
+- `FuDay(DATE)` - Extract day
+- `FuHour(TOD)` - Extract hour
+- `FuMinute(TOD)` - Extract minute
+- `FuSecond(TOD)` - Extract second
+
+### Validation
+- `FuIsToday(DATE)` - Check if date is today
+- `FuIsActiveDate(DATE, DATE, DATE)` - Check if date in range
+- `FuIsActiveTime(TOD, TOD, TOD)` - Check if time in range (handles overnight)
+- `FuIsActiveDateTime(DT, DT, DT)` - Check if datetime in range
+
+## Function Blocks
+
+### FbElapsedTime
+Measures elapsed time from a start point.
+```
+Methods:
+- StartNow() - Set start time to now
+- GetElapsedTime() - Get elapsed milliseconds (TIME)
+- GetElapsedLTime() - Get elapsed nanoseconds (LTIME)
+```
+
+### FbTimeoutWatcher
+Timeout detection with optional callback.
+```
+Methods:
+- StartNow() - Start timeout measurement
+- Retrigger() - Restart with same timeout
+- SetTimeout(TIME) - Set timeout in milliseconds
+- SetLTimeout(LTIME) - Set timeout in nanoseconds
+- HasTimeoutOccurred() - Check if timeout occurred
+- GetRemainingMilliseconds() - Time until timeout
+- GetRemainingNanoseconds() - Time until timeout (high-res)
+```
+
+### FbTimeZoneSetter
+Timezone management.
+```
+Methods:
+- SetTimeZone(STRING) - Set timezone by database key
+Properties:
+- xBusy - Operation in progress
+- xValid - Operation completed successfully
+- xError - Error occurred
+```
+
+### FbTimeZoneSetter_cpt
+Compact version for graphical languages.
+```
+Inputs:
+- xExecute - Start operation
+- sDatabaseKey - Timezone key
+Outputs:
+- xBusy, xDone, xError - Status flags
+```
+
+## Data Types
+
+### Standard Types Used
+- `DATE` - Date (D#1970-1-1 to D#2100-12-31)
+- `TOD` - Time of day (TOD#0:0:0.0 to TOD#23:59:59.999)
+- `DT` - Date and time (DT#1970-1-1-0:0:0 to DT#2100-12-31-23:59:59)
+- `TIME` - Time duration (0 to 49 days, 1ms resolution)
+- `LTIME` - Long time (0 to 584 years, 1ns resolution)
+
+### Custom Types
+- `typWagoTimeComponents` - Extended time components with timezone info
+- `typRTS_SYSTIMEDATE` - Compatible with system time date structure
+- `typTimeZoneDescription` - Timezone information
+
+## Important Notes
+
+### Value Ranges
+- DATE: 1970-2100 (system limit 2038 for setting)
+- TIME: 0-49 days (watch for overflow)
+- LTIME: 0-584 years (absolute or relative)
+- All calculations check for overflow
+
+### Timezone Handling
+- System time always in UT (GMT+0)
+- Timezone changes require reboot
+- Use IANA timezone database keys (e.g., "Europe/Berlin")
+- DST handled automatically
+
+### Performance Notes
+- Use appropriate resolution (TIME vs LTIME)
+- Prefer direct functions over FB calls for simple operations
+- Cache timezone operations when possible
+
+## Common Patterns
+
+### Timeout Implementation
+```
+VAR
+    fbTimeout: FbTimeoutWatcher;
+END_VAR
+
+fbTimeout.StartNow();
+fbTimeout.SetTimeout(T#10S);
+
+IF fbTimeout.HasTimeoutOccurred() THEN
+    // Handle timeout
+END_IF
+```
+
+### Elapsed Time Measurement
+```
+VAR
+    fbElapsed: FbElapsedTime;
+END_VAR
+
+fbElapsed.StartNow();
+// ... do work ...
+elapsed_ms := fbElapsed.GetElapsedTime();
+```
+
+### Date Range Validation
+```
+IF FuIsActiveDate(current_date, start_date, end_date) THEN
+    // Date is in valid range
+END_IF
+```
+
+### Next Maintenance Date
+```
+next_monday := FuNextWeekday(TODAY(), 1);  // 1 = Monday
+next_month_end := FuMonthEnd(TODAY());
+```
+
+## Error Handling
+Functions return appropriate error codes:
+- 0: Success
+- ERANGE: Value out of range
+- EINVAL: Invalid parameters
+- ENOSYS: Function not implemented
+- EACCES: Access denied (time setting)
+
+Check result codes and handle appropriately for robust applications.
