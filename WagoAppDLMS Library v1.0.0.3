@@ -1,0 +1,311 @@
+# WagoAppDLMS Library v1.0.0.3
+
+## Overview
+DLMS (Device Language Message Specification) library for intelligent power meter communication via serial interface.
+
+**Key Features:**
+- Serial communication with smart meters
+- OBIS (Object Identification System) code support
+- Single and multiple data record reading
+- Authentication support
+- Compact interface for graphical languages
+
+## Function Blocks
+
+### FbSingleData_cpt
+Reads single OBIS data record from meter.
+
+**Interface:**
+```
+Inputs:
+- xExecute: BOOL - Start communication
+- sInterface: STRING - Serial port (e.g., 'COM1')
+- typOBIS: typOBIS - OBIS code specification
+- eAuthLevel: eAuthenticationLevel - Authentication level
+- sPassword: STRING - Authentication password
+
+Outputs:
+- xBusy: BOOL - Communication active
+- xDone: BOOL - Operation completed successfully
+- xError: BOOL - Error occurred
+- eStatus: eStatus - Detailed error information
+- typDataRecord: typDataRecord - Retrieved data
+```
+
+### FbMultipleData_cpt
+Reads standard output data list from meter.
+
+**Interface:**
+```
+Inputs:
+- xExecute: BOOL - Start communication
+- sInterface: STRING - Serial port
+- eAuthLevel: eAuthenticationLevel - Authentication level
+- sPassword: STRING - Authentication password
+
+Outputs:
+- xBusy: BOOL - Communication active
+- xDone: BOOL - Operation completed successfully
+- xError: BOOL - Error occurred
+- eStatus: eStatus - Detailed error information
+- atypDataRecord: ARRAY[1..50] OF typDataRecord - Data list
+- wRecordCount: WORD - Number of valid records
+```
+
+## Data Types
+
+### typOBIS
+OBIS code specification structure.
+```
+TYPE typOBIS :
+STRUCT
+    bA: BYTE;     // Media/source
+    bB: BYTE;     // Channel
+    bC: BYTE;     // Physical quantity
+    bD: BYTE;     // Processing method
+    bE: BYTE;     // Tariff/rate
+    bF: BYTE;     // Storage method
+END_STRUCT
+END_TYPE
+```
+
+**Common OBIS Codes:**
+- `1.0.0.0.0.255` - Device identification
+- `1.0.1.8.0.255` - Active energy import total
+- `1.0.2.8.0.255` - Active energy export total
+- `1.0.32.7.0.255` - Voltage L1
+- `1.0.52.7.0.255` - Voltage L2  
+- `1.0.72.7.0.255` - Voltage L3
+- `1.0.31.7.0.255` - Current L1
+- `1.0.51.7.0.255` - Current L2
+- `1.0.71.7.0.255` - Current L3
+- `1.0.1.7.0.255` - Active power total
+- `1.0.21.7.0.255` - Active power L1
+- `1.0.41.7.0.255` - Active power L2
+- `1.0.61.7.0.255` - Active power L3
+
+### typDataRecord
+Single data record structure.
+```
+TYPE typDataRecord :
+STRUCT
+    typOBIS: typOBIS;        // OBIS code
+    sValue: STRING(255);     // Value as string
+    sUnit: STRING(32);       // Unit of measurement
+    fValue: REAL;            // Parsed numeric value
+    xValid: BOOL;            // Data validity flag
+END_STRUCT
+END_TYPE
+```
+
+### eAuthenticationLevel
+Authentication levels for meter access.
+```
+TYPE eAuthenticationLevel :
+(
+    NO_AUTH := 0,      // No authentication
+    LOW_AUTH := 1,     // Low level authentication
+    HIGH_AUTH := 2     // High level authentication
+);
+END_TYPE
+```
+
+### eStatus
+Library status and error codes.
+```
+TYPE eStatus :
+(
+    OK := 0,
+    COMMUNICATION_ERROR := 1,
+    TIMEOUT_ERROR := 2,
+    AUTHENTICATION_ERROR := 3,
+    PROTOCOL_ERROR := 4,
+    PARSING_ERROR := 5,
+    INVALID_OBIS := 6,
+    NO_DATA := 7
+);
+END_TYPE
+```
+
+## Usage Examples
+
+### Single Data Reading
+```
+VAR
+    fbSingle: FbSingleData_cpt;
+    obis_code: typOBIS;
+    data_record: typDataRecord;
+    execute: BOOL;
+END_VAR
+
+// Read total active energy import
+obis_code.bA := 1;  obis_code.bB := 0;  obis_code.bC := 1;
+obis_code.bD := 8;  obis_code.bE := 0;  obis_code.bF := 255;
+
+fbSingle(
+    xExecute := execute,
+    sInterface := 'COM1',
+    typOBIS := obis_code,
+    eAuthLevel := NO_AUTH,
+    sPassword := '',
+    
+    xBusy => ,
+    xDone => ,
+    xError => ,
+    eStatus => ,
+    typDataRecord => data_record
+);
+
+IF fbSingle.xDone AND NOT fbSingle.xError THEN
+    energy_total := data_record.fValue;  // Get numeric value
+    energy_unit := data_record.sUnit;    // Get unit (e.g., "kWh")
+END_IF
+```
+
+### Multiple Data Reading
+```
+VAR
+    fbMultiple: FbMultipleData_cpt;
+    data_records: ARRAY[1..50] OF typDataRecord;
+    record_count: WORD;
+    execute: BOOL;
+    i: INT;
+END_VAR
+
+fbMultiple(
+    xExecute := execute,
+    sInterface := 'COM1',
+    eAuthLevel := LOW_AUTH,
+    sPassword := 'password123',
+    
+    xBusy => ,
+    xDone => ,
+    xError => ,
+    eStatus => ,
+    atypDataRecord => data_records,
+    wRecordCount => record_count
+);
+
+IF fbMultiple.xDone AND NOT fbMultiple.xError THEN
+    FOR i := 1 TO record_count DO
+        IF data_records[i].xValid THEN
+            // Process each valid data record
+            ProcessDataRecord(data_records[i]);
+        END_IF
+    END_FOR
+END_IF
+```
+
+### OBIS Code Helper Function
+```
+FUNCTION CreateOBIS : typOBIS
+VAR_INPUT
+    A, B, C, D, E, F: BYTE;
+END_VAR
+
+CreateOBIS.bA := A;  CreateOBIS.bB := B;  CreateOBIS.bC := C;
+CreateOBIS.bD := D;  CreateOBIS.bE := E;  CreateOBIS.bF := F;
+```
+
+## Serial Communication Settings
+Default serial parameters (internally configured):
+- **Baud Rate:** 9600 bps
+- **Data Bits:** 8
+- **Parity:** Even
+- **Stop Bits:** 1
+- **Flow Control:** None
+
+## Error Handling
+
+### Status Checking
+```
+IF fbSingle.xError THEN
+    CASE fbSingle.eStatus OF
+        COMMUNICATION_ERROR:
+            // Check serial connection
+        TIMEOUT_ERROR:
+            // Increase timeout or check meter response
+        AUTHENTICATION_ERROR:
+            // Verify password and auth level
+        PROTOCOL_ERROR:
+            // Check meter DLMS compliance
+        PARSING_ERROR:
+            // Data format issue
+        INVALID_OBIS:
+            // OBIS code not supported
+        NO_DATA:
+            // No data available for request
+    END_CASE
+END_IF
+```
+
+### Retry Logic
+```
+VAR
+    retry_count: INT;
+    max_retries: INT := 3;
+END_VAR
+
+IF fbSingle.xError AND retry_count < max_retries THEN
+    retry_count := retry_count + 1;
+    execute := FALSE;  // Reset
+    // Wait briefly then retry
+    execute := TRUE;
+ELSIF fbSingle.xDone THEN
+    retry_count := 0;  // Reset on success
+END_IF
+```
+
+## Best Practices
+
+### Communication Timing
+- Allow sufficient time between requests
+- Implement proper timeouts
+- Use retry mechanisms for critical data
+
+### Authentication
+- Use minimum required authentication level
+- Secure password storage
+- Handle authentication failures gracefully
+
+### Data Validation
+- Always check `xValid` flag in data records
+- Validate numeric conversions
+- Handle missing or invalid OBIS codes
+
+### Performance
+- Read multiple data points in single request when possible
+- Cache frequently accessed data
+- Implement appropriate polling intervals
+
+## Common OBIS Groups
+
+### Energy Registers
+- `1.0.x.8.0.255` - Energy totals (x: 1=import, 2=export)
+- `1.0.x.8.1.255` - Tariff 1 energy
+- `1.0.x.8.2.255` - Tariff 2 energy
+
+### Instantaneous Values
+- `1.0.x.7.0.255` - Current power values
+- `1.0.32.7.0.255` - Voltage measurements
+- `1.0.31.7.0.255` - Current measurements
+
+### Device Information
+- `1.0.0.0.0.255` - Device ID
+- `1.0.0.2.0.255` - Firmware version
+- `1.0.96.1.0.255` - Serial number
+
+## Troubleshooting
+
+### Common Issues
+1. **No Communication:** Check serial cable and port settings
+2. **Authentication Fails:** Verify password and auth level
+3. **Invalid Data:** Check OBIS code support in meter
+4. **Timeouts:** Adjust timing or check meter response time
+5. **Parsing Errors:** Verify meter DLMS compliance
+
+### Debug Tips
+- Monitor serial communication with scope/analyzer
+- Check meter documentation for supported OBIS codes
+- Verify authentication requirements
+- Test with meter manufacturer's software first
