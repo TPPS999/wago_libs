@@ -1,0 +1,211 @@
+# WagoAppSunspec Library v1.0.1.12
+
+## Overview
+SunSpec communication library for solar inverters via Modbus TCP/RTU protocol.
+
+**Key Features:**
+- Master/slave communication with SunSpec devices
+- Support for multiple PICS (Protocol Implementation Conformance Statements)
+- Automatic device discovery and model detection
+- Read/write operations for supported data points
+
+## Master Function Block
+
+### FbSunspecMaster
+Main communication controller for SunSpec devices.
+
+**Configuration:**
+```
+typConfigParameters:
+  - eProtocol: TCP/RTU selection
+  - sIPAddress: Device IP (TCP)
+  - wPort: Communication port
+  - bUnitID: Modbus unit ID
+  - Serial settings (RTU): Baud, parity, stop bits
+```
+
+**Common Device Settings:**
+| Device    | Unit ID | Port | Notes |
+|-----------|---------|------|-------|
+| Fronius   | 1       | 502  | Standard |
+| Kaco      | 1       | 502  | Standard |
+| Kostal    | 71      | 1502 | Custom port |
+| SMA       | 126     | 502  | High unit ID |
+| Solaredge | 1       | 502  | Standard |
+
+**Outputs:**
+- `wDeviceBaseAddress` - SunSpec base address
+- `aPICS[]` - Supported PICS list
+- `typPICS_C001` - Common model data
+- `xBusy/xValid/xError` - Status flags
+
+## PICS Function Blocks
+
+### Inverter Models (I-Series)
+- `FbSunspecPICS_I101` - Single phase inverter
+- `FbSunspecPICS_I102` - Split phase inverter
+- `FbSunspecPICS_I103` - Three phase inverter
+- `FbSunspecPICS_I111` - Single phase float inverter
+- `FbSunspecPICS_I112` - Split phase float inverter
+- `FbSunspecPICS_I113` - Three phase float inverter
+- `FbSunspecPICS_I160` - Multiple MPPT inverter (repeating blocks)
+
+### Meter Models (M-Series)
+- `FbSunspecPICS_M201` - Single phase meter
+- `FbSunspecPICS_M202` - Split phase meter
+- `FbSunspecPICS_M203` - Three phase meter
+- `FbSunspecPICS_M204` - Three phase meter (float)
+- `FbSunspecPICS_M211` - Single phase meter (float)
+- `FbSunspecPICS_M212` - Split phase meter (float)
+- `FbSunspecPICS_M213` - Three phase meter (float)
+- `FbSunspecPICS_M214` - Three phase meter (float)
+
+### Inverter Control Models (IC-Series)
+- `FbSunspecPICS_IC120` - Inverter name plate
+- `FbSunspecPICS_IC121` - Basic inverter control (R/W)
+- `FbSunspecPICS_IC122` - Inverter status
+- `FbSunspecPICS_IC123` - Immediate inverter control (R/W)
+- `FbSunspecPICS_IC124` - Basic storage control (R/W)
+- `FbSunspecPICS_IC125` - Storage control (R/W)
+- `FbSunspecPICS_IC126-IC145` - Various control and monitoring models
+
+### DER (Distributed Energy Resource) Models
+- `FbSunspecPICS_DER701` - DER AC measurement
+- `FbSunspecPICS_DER702` - DER DC measurement
+- `FbSunspecPICS_DER703` - DER pricing
+- `FbSunspecPICS_DER704` - DER AC controls (R/W)
+- `FbSunspecPICS_DER705` - DER volt-var control (R/W)
+- `FbSunspecPICS_DER706` - DER volt-watt control (R/W)
+- `FbSunspecPICS_DER707-DER715` - Various DER control models
+
+### Storage Models (E-Series)
+- `FbSunspecPICS_E302` - Storage AC measurement
+- `FbSunspecPICS_E303` - Storage DC measurement (repeating)
+- `FbSunspecPICS_E304` - Storage events (repeating)
+- `FbSunspecPICS_E305-E308` - Storage control and status
+
+### String Combiner Models (SC-Series)
+- `FbSunspecPICS_SC401-SC404` - String combiner models (repeating)
+
+### Network Configuration Models (NC-Series)
+- `FbSunspecPICS_NC010-NC019` - Network interface configuration
+
+### Secure Models (S-Series)
+- `FbSunspecPICS_S802` - Security model
+
+## Usage Pattern
+
+### Basic Setup
+```
+VAR
+    oMaster: FbSunspecMaster;
+    oPICS_I113: FbSunspecPICS_I113;  // 3-phase inverter
+END_VAR
+
+// Configure master
+oMaster.typConfigParameters.eProtocol := TCP;
+oMaster.typConfigParameters.sIPAddress := '192.168.1.100';
+oMaster.typConfigParameters.wPort := 502;
+oMaster.typConfigParameters.bUnitID := 1;
+oMaster.xEnable := TRUE;
+
+// Configure PICS
+oPICS_I113.xEnable := TRUE;
+oPICS_I113.bPort := oMaster.bPort;  // Link to master
+```
+
+### Reading Data
+```
+// Wait for valid data
+IF oPICS_I113.xValid AND NOT oPICS_I113.xError THEN
+    ac_power := oPICS_I113.typPICS_I113.wW;           // AC Power
+    ac_voltage := oPICS_I113.typPICS_I113.wPPVph;     // AC Voltage
+    ac_current := oPICS_I113.typPICS_I113.wA;         // AC Current
+    frequency := oPICS_I113.typPICS_I113.wHz;         // Frequency
+    energy_total := oPICS_I113.typPICS_I113.dwWh;     // Total Energy
+END_IF
+```
+
+### Writing Data (Control Models)
+```
+// Set inverter power limit (IC121)
+oPICS_IC121.typPICS_IC121.wWMaxLim := 5000;  // 5kW limit
+// Data automatically written on next cycle if changed
+```
+
+## Data Types
+
+### Key Enumerations
+- `eOpState` - Operating states (OFF, SLEEPING, STARTING, MPPT, THROTTLED, etc.)
+- `eInvState` - Inverter states (OFF, SLEEPING, STARTING, RUNNING, etc.)
+- `eACWiringTYPE` - AC wiring types (SINGLE_PHASE, THREE_PHASE, etc.)
+- `eSetOp` - Operation commands (CONNECT, DISCONNECT)
+
+### Status Structures
+- `typPICS_C001` - Common model (manufacturer, model, version)
+- All PICS have corresponding `typPICS_XXX` structures
+
+## Important Notes
+
+### Data Validity
+- Invalid/unsupported data points show as `65535` or `-32676`
+- Check device documentation for supported features
+- Some data points may be deactivated in device configuration
+
+### Write Access
+- Not all devices support write operations
+- Check device manual for write permissions
+- Write errors indicate configuration issues
+
+### Error Handling
+- Check `xError` flag and `oStatus` for error codes
+- Errors reference `WagoAppPlcModbus` error codes
+- Devices may disable Modbus during low power conditions
+
+### Repeating Blocks
+Some models support multiple instances:
+- Set `ParameterList.MAX_BLOCKS_XXX` for required quantity
+- Check `wQuantityBlocks` output for actual count
+- Examples: I160 (MPPT), E303 (DC measurement), SC401-404 (combiners)
+
+### Performance Tips
+- Enable only required PICS models
+- Use appropriate polling intervals
+- Handle communication errors gracefully
+- Consider device response times
+
+## Common Data Points
+
+### AC Measurements
+- `wW` - AC Power (W)
+- `wVA` - AC Apparent Power (VA)
+- `wVar` - AC Reactive Power (VAR)
+- `wPF` - Power Factor
+- `wA` - AC Current (A)
+- `wPPVph` - AC Voltage (V)
+- `wHz` - Frequency (Hz)
+
+### DC Measurements
+- `wDCW` - DC Power (W)
+- `wDCV` - DC Voltage (V)
+- `wDCA` - DC Current (A)
+
+### Energy Counters
+- `dwWh` - Total Energy (Wh)
+- `dwVAh` - Total Apparent Energy (VAh)
+- `dwVarh` - Total Reactive Energy (VArh)
+
+### Status Information
+- `eOpState` - Operating state
+- `eInvState` - Inverter state
+- `wEvt` - Event flags
+- `wAlm` - Alarm flags
+
+## Error Codes
+Standard Modbus error codes apply:
+- Communication timeouts
+- Invalid function codes
+- Invalid register addresses
+- Device-specific errors
+
+Check `WagoAppPlcModbus` documentation for complete error reference.
