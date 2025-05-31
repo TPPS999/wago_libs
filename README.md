@@ -17,6 +17,11 @@ This repository contains comprehensive documentation for WAGO PLC libraries, pro
 - **WagoSysSSL** - SSL/TLS encryption for secure communications
 - **WagoSysCurl** - HTTP client library with cURL functionality
 - **WagoSysCloud** - Cloud connectivity and agent communication
+- **WagoTypesSocket** - Socket communication type definitions and base classes
+- **WagoTypesModbus** - Modbus communication type definitions
+- **WagoTypesSNMP** - SNMP protocol type definitions
+- **WagoTypesSSL** - SSL/TLS type definitions and structures
+- **WagoTypesCurl** - cURL library type definitions
 
 ### Serial Communication
 
@@ -30,12 +35,16 @@ This repository contains comprehensive documentation for WAGO PLC libraries, pro
 - **WagoAppSerial_ebmBus** - ebmBus protocol for motor control
 - **WagoSysSerial** - Low-level serial communication interface
 - **WagoSysModem** - Modem control and AT command interface
+- **WagoTypesCom** - Serial communication type definitions (TTY, RS485, handshake)
+- **WagoTypesModem** - Modem communication type definitions
 
 ### BACnet & Building Automation
 
 - **WagoSysBACnet** - Complete BACnet protocol stack with objects and services
 - **WagoSolRoomApp** - Room automation functions for lighting and HVAC control
 - **WagoSolWeihenstephan** - Weihenstephan protocol server implementation
+- **WagoTypesBACnet** - BACnet protocol type definitions and object structures
+- **WagoSysVisuBACnet** - BACnet visualization support
 
 ### Industrial Protocols & Standards
 
@@ -49,6 +58,8 @@ This repository contains comprehensive documentation for WAGO PLC libraries, pro
 ### CANopen & CAN Communication
 
 - **WagoSysCan** - CAN interface and CANopen stack implementation
+- **WagoTypesCan** - CAN communication type definitions and enumerations
+- **WagoTypesCanExtra** - Extended CAN type definitions
 
 ### Hardware Control & Monitoring
 
@@ -62,6 +73,7 @@ This repository contains comprehensive documentation for WAGO PLC libraries, pro
 - **WagoAppSafety** - Safety system communication and diagnostics
 - **WagoSysEdgeController** - Edge computing functionality
 - **WagoSysProcessorLoad** - CPU load monitoring and performance analysis
+- **WagoTypesProcessorLoad** - Processor load monitoring type definitions
 
 ### K-Bus & I/O Module Support
 
@@ -72,29 +84,68 @@ This repository contains comprehensive documentation for WAGO PLC libraries, pro
 - **WagoSysFieldbusModule** - Fieldbus-connected module support
 - **WagoSysModuleBase** - Base classes for module implementations
 - **WagoSysDynamicIoMapping** - Dynamic I/O mapping and configuration
+- **WagoTypesModuleBase** - Base classes and common types for module implementations
+- **WagoTypesBusServices** - Bus services type definitions and terminal data
+- **WagoTypesKbusTerminalControl** - K-Bus terminal control type definitions
 
 ### Module-Specific Libraries
 
+#### Temperature & Analog Input Modules
+- **WagoSysModule_750_450** - Temperature input module (RTD/TC/Voltage)
 - **WagoSysModule_750_451** - Temperature input module (RTD/TC)
-- **WagoSysModule_750_630** - RTC module with calendar functions
-- **WagoSysModule_75x_658** - CAN gateway module
-- **WagoSysModule_75x_632** - Proportional valve output
-- **WagoSysModule_75x_461** - Analog input module
-- **WagoSysModule_75x_481** - Thermocouple input module
-- **WagoSysModule_75x_471** - Universal analog input
-- **WagoSysModule_75x_469** - High-precision analog input
+- **WagoSysModule_750_463** - Thermocouple input module (2-channel)
+- **WagoSysModule_750_464** - Thermocouple input module (4-channel)
 - **WagoSysModule_75x_458** - 8-channel analog input
-- **WagoSysModule_75x_497** - 8-channel RTD input
+- **WagoSysModule_75x_461** - Analog input module (single-ended)
+- **WagoSysModule_75x_469** - High-precision analog input (thermocouple)
+- **WagoSysModule_75x_471** - Universal analog input
+- **WagoSysModule_75x_481** - Thermocouple input module
+- **WagoSysModule_75x_486** - 8-channel voltage/current input
+- **WagoSysModule_75x_487** - 8-channel thermocouple input
+- **WagoSysModule_75x_489** - 4-channel current/voltage input
 - **WagoSysModule_75x_496** - 4-channel RTD input
+- **WagoSysModule_75x_497** - 8-channel RTD input
+- **WagoSysModule_75x_498** - RTD/resistance input module
+
+#### Analog Output Modules
+- **WagoSysModule_75x_562** - 2-channel analog output (voltage/current)
+- **WagoSysModule_75x_563** - 4-channel analog output module
+- **WagoSysModule_75x_564** - 4-channel current output module
+- **WagoSysModule_75x_597** - 8-channel voltage output module
+
+#### Digital I/O & Special Function Modules
+- **WagoSysModule_750_630** - RTC module with calendar functions
+- **WagoSysModule_750_636** - DeviceNet slave module
+- **WagoSysModule_750_642** - Incremental encoder interface
+- **WagoSysModule_750_643** - 2-channel encoder interface
 - **WagoSysModule_75x_511** - PWM output module
-- **WagoSysModule_75x_563** - Analog output module
-- **WagoSysModule_75x_564** - Current output module
-- **WagoSysModule_75x_597** - Voltage output module
-- **WagoSysModule_75x_633** - Encoder interface module
-- **WagoSysModule_75x_645** - Digital input/output
+- **WagoSysModule_75x_632** - Proportional valve output (single channel)
+- **WagoSysModule_75x_633** - Encoder interface module (SSI/incremental)
+- **WagoSysModule_75x_635** - Profibus master module
+- **WagoSysModule_75x_640** - 16-channel relay output
+- **WagoSysModule_75x_644** - 4-channel relay output
+- **WagoSysModule_75x_645** - Digital input/output module
 - **WagoSysModule_75x_655** - DeviceNet master module
 - **WagoSysModule_75x_657** - Ethernet TCP/IP module
-- **WagoSysModule_75x_677** - Incremental encoder interface
+- **WagoSysModule_75x_658** - CAN gateway module
+- **WagoSysModule_75x_677** - Incremental encoder interface (multi-channel)
+
+#### Communication & Serial Interface Modules
+- **WagoSysModule_75x_49x** - Serial interface modules (RS232/485)
+- **WagoSysModule_75x_48x** - Serial communication modules
+- **WagoSysModule_75x_65x** - TTY interface modules
+- **WagoSysModule_75x_66x** - Safety I/O modules with diagnostics
+- **WagoSysModule_75x_67x** - Profibus DP slave modules
+
+#### Specialized Modules
+- **WagoSysModule_75x_1491** - Strain gauge input module
+- **WagoSysModule_75x_1632** - Multi-channel proportional valve output
+- **WagoSysModule_75x_1657** - Ethernet switch module
+- **WagoSysModule_753_646** - Profibus master module (753 series)
+- **WagoSysModule_753_647** - CAN master module (753 series)
+- **WagoSysModule_753_649** - Ethernet switch module (753 series)
+- **WagoSysModule_753_163x** - Fieldbus coupler modules
+- **WagoSysModule_753_1646** - Advanced communication module
 
 ### Data Management & Cloud
 
@@ -106,6 +157,7 @@ This repository contains comprehensive documentation for WAGO PLC libraries, pro
 - **WagoAppTOPASS** - TO-PASS web service integration
 - **WagoAppPvForecast** - Photovoltaic forecast data from WAGO Cloud
 - **WagoSysSQL_SQLite** - SQLite database support
+- **WagoTypesSQL_SQLite** - SQLite database type definitions
 
 ### System & Utilities
 
@@ -131,10 +183,33 @@ This repository contains comprehensive documentation for WAGO PLC libraries, pro
 - **WagoSysBehaviourModels** - Behavior model base classes
 - **WagoSysAtomic** - Atomic operations for thread safety
 - **WagoSysProcess** - Process control and management
+- **WagoSysUtils** - System utilities and exclusivity handling
+- **WagoSysVirtualBuffer** - Virtual buffer management for data streaming
+- **WagoSysVersion** - System version information
+- **WagoSysTouchPanel** - Touch panel interface support
+- **WagoSysTree** - Tree structure data management
+- **WagoTypesCommon** - Common type definitions and utilities
+- **WagoTypesErrorBase** - Error handling base types
+- **WagoTypesEvent** - Event handling type definitions
+- **WagoTypesLog** - Logging system type definitions
+- **WagoTypesTree** - Tree data structure types
+- **WagoSysTypedefs_Debugging** - Debugging support type definitions
+- **WagoSysTypedefs_Pointer** - Pointer manipulation utilities
+- **WagoSysTypedefs_Internal_32Bit** - 32-bit internal system types
+- **WagoTypesAsync_Internal_PFC** - PFC-specific asynchronous types
+- **WagoTypesAsync_Internal_Template** - Template for asynchronous operations
 
 ### Application LED Control
 
 - **WagoSysAppLED** - Application LED control with patterns and sequences
+- **WagoTypesAppLED** - Application LED control type definitions with color and pattern support
+
+### Visualization & User Interface
+
+- **WagoVisuIcons** - Standard visualization icons
+- **WagoVisuIconsMaterialDesign** - Material Design icons for visualization
+- **WagoSysVisuStandard** - Standard visualization components
+- **WagoSysVisuTree** - Tree view visualization components
 
 ### Security & DRM
 
@@ -186,6 +261,14 @@ This repository contains comprehensive documentation for WAGO PLC libraries, pro
 - Fieldbus connectivity
 - Edge computing functionality
 
+### Advanced Module Support
+- Temperature measurement (RTD, thermocouple, voltage)
+- Analog I/O with high precision
+- Digital I/O with safety functions
+- Encoder interfaces (incremental, SSI)
+- Communication modules (serial, Ethernet, CAN, Profibus)
+- Specialized functions (strain gauge, proportional valves)
+
 ## 📖 Documentation Structure
 
 Each library documentation includes:
@@ -234,10 +317,17 @@ END_IF
 
 These libraries are designed for WAGO PLC systems and require:
 
-- Compatible WAGO controller (750/752 series)
+- Compatible WAGO controller (750/752/753 series)
 - Appropriate I/O modules for specific applications
 - Proper network and serial interface configuration
 - Required communication modules for protocol-specific libraries
+
+### Supported Module Series
+
+- **750 Series** - Standard I/O modules with K-Bus interface
+- **752 Series** - Advanced controller modules
+- **753 Series** - Fieldbus coupler and gateway modules
+- **75x Series** - Generic notation for multiple compatible modules
 
 ---
 
