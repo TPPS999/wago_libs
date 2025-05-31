@@ -38,8 +38,9 @@ This repository contains comprehensive documentation for WAGO PLC libraries, pro
 - **WagoTypesCom** - Serial communication type definitions (TTY, RS485, handshake)
 - **WagoTypesModem** - Modem communication type definitions
 
-### BACnet & Building Automation
+### Building Automation & KNX/EIB
 
+- **WagoAppKNX** - Complete KNX/EIB TP1 communication library with comprehensive DPT support
 - **WagoSysBACnet** - Complete BACnet protocol stack with objects and services
 - **WagoSolRoomApp** - Room automation functions for lighting and HVAC control
 - **WagoSolWeihenstephan** - Weihenstephan protocol server implementation
@@ -137,15 +138,17 @@ This repository contains comprehensive documentation for WAGO PLC libraries, pro
 - **WagoSysModule_75x_66x** - Safety I/O modules with diagnostics
 - **WagoSysModule_75x_67x** - Profibus DP slave modules
 
+#### KNX/EIB Communication Modules
+- **WagoSysModule_753_646** - KNX/EIB TP1 master module for building automation
+- **WagoSysModule_753_647** - CAN master module (753 series) with DALI functionality
+- **WagoSysModule_753_649** - Ethernet switch module (753 series)
+- **WagoSysModule_753_163x** - Fieldbus coupler modules
+- **WagoSysModule_753_1646** - Advanced communication module
+
 #### Specialized Modules
 - **WagoSysModule_75x_1491** - Strain gauge input module
 - **WagoSysModule_75x_1632** - Multi-channel proportional valve output
 - **WagoSysModule_75x_1657** - Ethernet switch module
-- **WagoSysModule_753_646** - Profibus master module (753 series)
-- **WagoSysModule_753_647** - CAN master module (753 series)
-- **WagoSysModule_753_649** - Ethernet switch module (753 series)
-- **WagoSysModule_753_163x** - Fieldbus coupler modules
-- **WagoSysModule_753_1646** - Advanced communication module
 
 ### Data Management & Cloud
 
@@ -241,18 +244,27 @@ This repository contains comprehensive documentation for WAGO PLC libraries, pro
 - Compatible with WAGO PLC hardware ecosystem
 
 ### Communication Excellence
-- Multiple protocol support (Modbus, BACnet, HART, EnOcean, etc.)
+- Multiple protocol support (Modbus, BACnet, HART, EnOcean, KNX/EIB, etc.)
 - Network communication (TCP/UDP, HTTP/HTTPS, FTP/SFTP)
 - Serial communication with various protocols
 - Wireless and wired connectivity options
 - SSL/TLS encryption support
+
+### Building Automation Excellence
+- **KNX/EIB TP1** - Complete building automation protocol support
+- **Comprehensive DPT Library** - All standard KNX data point types
+- **HVAC Control** - Temperature, humidity, air quality monitoring
+- **Lighting Control** - Switching, dimming, scene management
+- **Energy Management** - Power measurement and monitoring
+- **Time Scheduling** - Calendar and timer functions
+- **Safety Integration** - Window/door sensors, occupancy detection
 
 ### Industrial Standards
 - Support for major automation protocols
 - Energy management and monitoring
 - Safety and diagnostics integration
 - Real-time data processing capabilities
-- Building automation (BACnet, room control)
+- Building automation (BACnet, KNX/EIB, room control)
 
 ### Hardware Integration
 - Comprehensive K-Bus module support
@@ -266,7 +278,7 @@ This repository contains comprehensive documentation for WAGO PLC libraries, pro
 - Analog I/O with high precision
 - Digital I/O with safety functions
 - Encoder interfaces (incremental, SSI)
-- Communication modules (serial, Ethernet, CAN, Profibus)
+- Communication modules (serial, Ethernet, CAN, Profibus, KNX/EIB)
 - Specialized functions (strain gauge, proportional valves)
 
 ## 📖 Documentation Structure
@@ -299,10 +311,42 @@ IF fbInstance.xError THEN
 END_IF
 ```
 
+### KNX/EIB Integration
+```iec
+VAR
+    fbKNXMaster: FbKNX_Master;
+    fbTempSensor: FbDPT_Value_Temp_pro;
+    fbLightSwitch: FbDPT_Switch_pro;
+END_VAR
+
+// Initialize KNX master
+fbKNXMaster(
+    bPortKNX := 1,
+    I_Port := IoConfig_Globals.KNX_EIB_TP1_Interface
+);
+
+// Temperature sensor with timeout monitoring
+fbTempSensor(
+    bPortKNX := 1,
+    dwIndex_DPT := 1,
+    rValue_IN := CurrentTemperature,
+    tMinSendTime := T#30S
+);
+
+// Light switch with read capability
+fbLightSwitch(
+    bPortKNX := 1,
+    dwIndex_DPT := 2,
+    xSwitch_IN := LightCommand,
+    xRead_KNX := ReadLightStatus
+);
+```
+
 ### Performance Considerations
 - Use appropriate polling intervals
 - Handle communication errors gracefully
 - Consider device response times
+- Implement proper telegram throttling for KNX
 - Test thoroughly in target environment
 
 ## ⚠️ Important Notes
@@ -312,6 +356,7 @@ END_IF
 - Test thoroughly in your specific application environment
 - Check library compatibility with your PLC hardware
 - Version requirements may vary between libraries
+- KNX/EIB requires proper ETS configuration and group address assignment
 
 ## 🔧 Hardware Compatibility
 
@@ -321,13 +366,21 @@ These libraries are designed for WAGO PLC systems and require:
 - Appropriate I/O modules for specific applications
 - Proper network and serial interface configuration
 - Required communication modules for protocol-specific libraries
+- KNX/EIB TP1 interface module (753-646) for building automation
 
 ### Supported Module Series
 
 - **750 Series** - Standard I/O modules with K-Bus interface
 - **752 Series** - Advanced controller modules
-- **753 Series** - Fieldbus coupler and gateway modules
+- **753 Series** - Fieldbus coupler and gateway modules (including KNX/EIB)
 - **75x Series** - Generic notation for multiple compatible modules
+
+### KNX/EIB Specific Requirements
+
+- **753-646** - KNX/EIB TP1 master module
+- **ETS Software** - For KNX device configuration and group address management
+- **KNX Certification** - Ensure devices comply with KNX standard
+- **Proper Wiring** - TP1 bus topology with correct termination
 
 ---
 
