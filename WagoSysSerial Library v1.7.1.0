@@ -1,0 +1,286 @@
+# WagoSysSerial Library v1.7.1.0
+
+## Overview
+Low-level serial communication interface library for WAGO PLCs providing core serial interface functionality with enhanced transmission control.
+
+**Key Features:**
+- Serial data transmission and reception
+- Enhanced TX buffer management for 750-652 modules
+- Improved transmission completion detection
+- Cyclic operation support
+- Standardized error handling
+
+## Core Function Block
+
+### FbSerialInterface
+Main function block for serial communication with enhanced buffer management.
+
+**Purpose:**
+Transmit and receive data via a serial interface with improved transmission control. The key benefit is that the `xTxTrigger` parameter is not reset until the TX buffer of a 750-652 module is completely empty, ensuring all data is actually transmitted over the cable.
+
+**Key Differences from Standard Modules:**
+- **750-652**: `xTxTrigger` remains active until TX buffer is completely empty
+- **750-650/651/653**: `xTxTrigger` resets after bytes are passed to the physical module (may still have pending transmission)
+
+**Interface:**
+```
+FUNCTION_BLOCK FbSerialInterface
+VAR_INPUT
+    I_Port : typPortSerial;     // Serial port configuration
+    xEnable : BOOL;             // Enable communication
+    xTxTrigger : BOOL;          // Transmission trigger
+    TxData : ARRAY[0..255] OF BYTE;  // Transmission buffer
+    wTxLength : WORD;           // Number of bytes to transmit
+END_VAR
+
+VAR_OUTPUT
+    xValid : BOOL;              // Valid operation state
+    xError : BOOL;              // Error occurred
+    oStatus : ErrorSerial;      // Detailed error information
+    xTxActive : BOOL;           // Transmission in progress
+    xRxDataValid : BOOL;        // Received data available
+    RxData : ARRAY[0..255] OF BYTE;  // Reception buffer
+    wRxLength : WORD;           // Number of received bytes
+END_VAR
+```
+
+**Usage Pattern:**
+```iec
+VAR
+    fbSerial: FbSerialInterface;
+    SerialPort: typPortSerial;
+    TxBuffer: ARRAY[0..255] OF BYTE;
+    RxBuffer: ARRAY[0..255] OF BYTE;
+    SendTrigger: BOOL;
+END_VAR
+
+// Configure serial port
+SerialPort := IoConfig_Globals.COM1;  // Or appropriate port reference
+
+// Prepare data to send
+TxBuffer[0] := 16#48;  // 'H'
+TxBuffer[1] := 16#65;  // 'e'
+TxBuffer[2] := 16#6C;  // 'l'
+TxBuffer[3] := 16#6C;  // 'l'
+TxBuffer[4] := 16#6F;  // 'o'
+
+// Call function block cyclically
+fbSerial(
+    I_Port := SerialPort,
+    xEnable := TRUE,
+    xTxTrigger := SendTrigger,
+    TxData := TxBuffer,
+    wTxLength := 5,
+    
+    xValid => ,
+    xError => ,
+    oStatus => ,
+    xTxActive => ,
+    xRxDataValid => ,
+    RxData => RxBuffer,
+    wRxLength => 
+);
+
+// Handle transmission
+IF SendTrigger AND NOT fbSerial.xTxActive THEN
+    SendTrigger := FALSE;  // Reset trigger after transmission starts
+END_IF
+
+// Handle received data
+IF fbSerial.xRxDataValid THEN
+    // Process received data in RxBuffer
+    ProcessReceivedData(RxBuffer, fbSerial.wRxLength);
+END_IF
+
+// Handle errors
+IF fbSerial.xError THEN
+    // Check fbSerial.oStatus for detailed error information
+END_IF
+```
+
+## Data Types
+
+### ErrorSerial
+Error handling structure for serial communication errors.
+
+**Error Categories:**
+- Communication timeouts
+- Buffer overflow/underflow
+- Port configuration errors
+- Hardware-specific errors
+- Module availability issues
+
+### eErrorSerial
+Enumeration of serial communication error codes.
+
+**Common Error Codes:**
+- Port not available
+- Invalid configuration
+- Transmission timeout
+- Reception buffer overflow
+- Hardware malfunction
+
+## Best Practices
+
+### Cyclic Operation
+**Always call the function block cyclically** for proper operation:
+```iec
+// In main program cycle
+fbSerial();
+```
+
+### Transmission Control
+```iec
+// Proper transmission sequence
+IF NOT fbSerial.xTxActive AND DataToSend THEN
+    // Prepare data
+    TxBuffer[0] := DataByte1;
+    TxBuffer[1] := DataByte2;
+    // ...
+    
+    // Trigger transmission
+    SendTrigger := TRUE;
+    DataToSend := FALSE;
+END_IF
+
+// Reset trigger when transmission starts
+IF SendTrigger AND fbSerial.xTxActive THEN
+    SendTrigger := FALSE;
+END_IF
+```
+
+### Error Handling
+```iec
+IF fbSerial.xError THEN
+    CASE fbSerial.oStatus.eError OF
+        // Handle specific error types
+        TIMEOUT_ERROR:
+            // Retry or report timeout
+        BUFFER_OVERFLOW:
+            // Reduce data rate or increase buffer handling
+        PORT_NOT_AVAILABLE:
+            // Check hardware configuration
+        // Add other error cases as needed
+    END_CASE
+END_IF
+```
+
+### Reception Handling
+```iec
+IF fbSerial.xRxDataValid THEN
+    // Copy received data immediately
+    FOR i := 0 TO fbSerial.wRxLength - 1 DO
+        ProcessedData[i] := fbSerial.RxData[i];
+    END_FOR
+    
+    // Process the data
+    ProcessReceivedMessage(ProcessedData, fbSerial.wRxLength);
+END_IF
+```
+
+## Module Compatibility
+
+### Enhanced Modules (750-652)
+- TX trigger remains active until buffer is completely empty
+- Guarantees all data is transmitted over the cable
+- Recommended for critical communication applications
+
+### Standard Modules (750-650/651/653)
+- TX trigger resets after data is passed to module
+- Some bytes may still be pending in module buffer
+- Suitable for general communication needs
+
+## Important Notes
+
+### Performance Considerations
+- Call function block cyclically for proper operation
+- Monitor `xTxActive` to avoid transmission conflicts
+- Handle received data promptly to prevent buffer overflow
+
+### Hardware Requirements
+- Compatible WAGO serial interface module
+- Proper cable connections and termination
+- Correct serial parameters (baud rate, parity, stop bits)
+
+### Debugging Tips
+- Monitor `xTxActive` for transmission status
+- Check `oStatus` for detailed error information
+- Use `xRxDataValid` to detect incoming data
+- Verify port configuration matches hardware setup
+
+## Version History
+
+| Version | Date | Author | Changes |
+|---------|------|--------|---------|
+| 1.7.1.0 | 2019-01-08 | u015842 | Properties: free placeholder added |
+| 1.7.0.1 | 2016-09-23 | u010545 | Workaround for modem bug of 8207 |
+| 1.7.0.0 | 2017-05-03 | u010545 | Split of WagoSysModuleBase |
+| 1.6.0.1 | 2016-09-23 | u010545 | FbSerialInterface implemented |
+| 1.6.0.0 | 2016-02-26 | u010545 | Changed error base to WagoSysErrorBase |
+
+## Related Libraries
+
+- **WagoTypesCommon** - Common type definitions
+- **WagoSysErrorBase** - Error handling base functionality
+- **WagoSysModuleBase** - Module base classes
+- **WagoAppSerial_*** - Higher-level serial protocol libraries
+
+## Example Applications
+
+### Simple Data Exchange
+```iec
+// Send a simple command and wait for response
+IF SendCommand THEN
+    TxBuffer[0] := 16#01;  // Command byte
+    TxBuffer[1] := 16#02;  // Parameter
+    TxBuffer[2] := 16#03;  // Checksum
+    
+    fbSerial.wTxLength := 3;
+    SendTrigger := TRUE;
+    SendCommand := FALSE;
+END_IF
+```
+
+### Protocol Implementation Base
+```iec
+// Use as base for implementing custom protocols
+TYPE ProtocolState : (IDLE, SENDING, WAITING_RESPONSE, PROCESSING);
+END_TYPE
+
+VAR
+    eState: ProtocolState;
+    ResponseTimeout: TON;
+END_VAR
+
+CASE eState OF
+    IDLE:
+        IF CommandReady THEN
+            PrepareCommand();
+            SendTrigger := TRUE;
+            eState := SENDING;
+        END_IF
+        
+    SENDING:
+        IF NOT fbSerial.xTxActive THEN
+            ResponseTimeout(IN := TRUE, PT := T#1S);
+            eState := WAITING_RESPONSE;
+        END_IF
+        
+    WAITING_RESPONSE:
+        IF fbSerial.xRxDataValid THEN
+            ProcessResponse();
+            eState := PROCESSING;
+        ELSIF ResponseTimeout.Q THEN
+            HandleTimeout();
+            eState := IDLE;
+        END_IF
+        
+    PROCESSING:
+        // Handle received data
+        eState := IDLE;
+END_CASE
+```
+
+---
+
+*For complete technical specifications and advanced configuration options, refer to the official WAGO documentation and hardware manuals.*
