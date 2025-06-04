@@ -1,0 +1,512 @@
+# WagoAppCom Library v1.7.1.2
+
+## Overview
+Serial communication library for WAGO PLCs providing function blocks for managing serial interfaces including controller interfaces and K-Bus I/O modules.
+
+**Key Features:**
+- Serial interface management for central controllers and K-Bus modules
+- Runtime device configuration and reconfiguration
+- Hardware handshake support with manual control capability
+- Multiple function block variants for different programming approaches
+- Data exchange mode support for specific modules (652, 1652)
+
+## General Information
+
+### Device Configuration
+Serial devices are configured at runtime by opening a generic function block with:
+- Device identification via `I_WagoSysComBase` interface
+- Required communication parameters
+- Optional reconfiguration during runtime
+
+### Device Identification
+- No standard name strings (like 'COM1') - uses interface instances instead
+- Available devices appear in IDE device list
+- Interface instance passed to Open() method (can be named COM1 by user)
+
+### Hardware Handshake Pins
+**Line Pair Interfaces:** Traditional serial communication with TX/RX lines only
+
+**RS-232-C Style:** Additional hardware flow control lines that can be:
+- Handled automatically by the system
+- Controlled manually by application for special signaling
+
+## Core Function Blocks
+
+### FbSerialInterface
+Main serial communication function block - fundamental FB of the library.
+
+**Key Features:**
+- Each open FB represents one physical serial interface
+- Multiple FBs can share one interface (not simultaneously)
+- Interfaces typically remain open throughout machine runtime
+- Must be closed/reopened during online-change to prevent resource blocking
+
+**Properties:**
+- `ErrorCondition` - Current error status
+- `isConnected` - Connection state for removable devices
+- `nReceiveDataArrived` - Number of bytes available to read
+- `nReadyForWrite` - Buffer space available for writing (-1 = not ready)
+- `nBytesInTxBuffer` - Bytes pending transmission
+- `DeferredResult` - Asynchronous operation result
+
+**Core Methods:**
+
+#### OpenAndConfigure()
+Attaches FB to serial port with configuration.
+```
+Parameters:
+- Device interface (I_WagoSysComBase)
+- Baud rate (0 = hardware default)
+- Data bits, stop bits, parity
+- Hardware handshake settings
+```
+
+**Notes:**
+- Consecutive calls can reconfigure same interface
+- 1.5 stop bits possible with 5-bit frames (hardware dependent)
+- Stop-bit setting may affect only transmitter on some interfaces
+
+**Result Codes:**
+- `0` - Success, ready for communication
+- `ENOTTY` - Device doesn't exist or attached to another FB
+- `ENOTCONN` - Removable device not connected
+- `ENOPROTOOPT` - Configuration option not available
+- `EINVAL` - Invalid parameters
+- `EBUSY` - Different device already open
+- `EAGAIN` - Device busy with blocking operation
+- `EWOULDBLOCK` - Operation needs more cycles
+
+#### Write()
+Writes data to serial port.
+```
+Parameters:
+- pTxBuffer: Pointer to data
+- udiTxNBytes: Number of bytes to send
+```
+
+**Important Notes:**
+- Check `nReadyForWrite` before sending
+- Can send more data than buffer space (uses data location as temporary buffer)
+- When `nReadyForWrite = -1`, data area must not be modified until transmission complete
+- Use `IsTransmitterEmpty()` or `nBytesInTxBuffer` to check completion
+
+**Result Codes:**
+- `0` - Success
+- `EBADF` - FB not open
+- `EINVAL` - Invalid parameters
+- `EWOULDBLOCK` - FB busy with previous data
+- `ENOTCONN` - Removable device disconnected
+
+#### Read()
+Reads data from serial port.
+```
+Parameters:
+- pRxBuffer: Pointer to receive buffer
+- udiRxBufferSize: Maximum bytes to read
+Output:
+- udiRxNBytes: Actual bytes received
+```
+
+**Behavior:**
+- Won't transfer more than `udiRxBufferSize`
+- Remaining data stays in internal buffer
+- Returns `ENODATA` if no data available
+- Corrupted data transferred with `EBADMSG` error
+
+**Result Codes:**
+- `0` - Success
+- `EBADF` - FB not open
+- `EINVAL` - Invalid parameters
+- `ENOTCONN` - Device disconnected
+- `ENODATA` - No new data available
+- `EBADMSG` - Data integrity error (framing/parity)
+
+#### Close()
+Closes connection and detaches FB.
+
+**Result Codes:**
+- `0` - Success
+- `EBADF` - FB not open
+- `ENOTTY` - Interface attached to different FB
+- `EWOULDBLOCK` - Operation needs more cycles
+
+### Buffer Management Methods
+
+#### AttachWriteBuffer()
+Attaches external transmit buffer to FB.
+```
+Parameters:
+- pBuffer: Pointer to buffer (NULL to detach)
+- udiSize: Buffer size (0 to detach)
+```
+
+#### AttachReadBuffer()
+Attaches external receive buffer to FB.
+```
+Parameters:
+- pBuffer: Pointer to buffer (NULL to detach)
+- udiSize: Buffer size (0 to detach)
+```
+
+#### ClearTxBuffer()
+Discards all data scheduled for transmission.
+
+#### ClearRxBuffer()
+Discards all received data up to current time.
+
+### Flow Control Methods
+
+#### SetBusyState()
+Announces that no more receive data is welcome.
+- Applies appropriate handshake mechanisms
+- Works only with soft handshake (XON/XOFF)
+- Data may still arrive and be processed
+- Use `ResumeOperation()` to return to normal
+
+#### ResumeOperation()
+Resumes normal operation after interruption.
+- Revokes effects of `IgnoreIncomingData()` and `SetBusyState()`
+
+#### IgnoreIncomingData()
+Clears RX buffer and ignores further data until resumed.
+- Intended for fault recovery
+- Data received during ignore phase is lost
+- Returns status about data loss
+
+**Result Codes:**
+- `0` - No inbound data since last call
+- `ENOLINK` - Data received and discarded
+- `EDOTDOT` - Cannot detect if data loss occurred
+
+### Hardware Line Control
+
+#### IsLineAvailable()
+Checks if output line can be directly manipulated.
+- Returns FALSE if no extra hardware lines available
+- Returns FALSE for lines used by hardware handshake
+- Returns TRUE if lines available and no hardware handshake
+
+#### SetLineState()
+Sets output line to active or passive state.
+```
+Parameters:
+- eLine: Hardware line identifier
+- xActive: TRUE = active, FALSE = passive
+```
+
+#### GetLineState()
+Retrieves state of input lines.
+```
+Returns:
+- TRUE if line active
+- FALSE if line passive
+- TRUE if hardware doesn't support querying
+```
+
+### Status and Diagnostics
+
+#### IsTransmitterEmpty()
+Indicates if all data has been sent.
+```
+Parameters:
+- xDefaultValue: Value returned if operation not supported
+Returns:
+- TRUE if all data transmitted
+- FALSE if data still pending
+- xDefaultValue if not supported/error
+```
+
+#### GetErrorObject()
+Retrieves error object from hardware interface.
+```
+Parameters:
+- xAcknowledge: TRUE = acknowledge error, FALSE = just read
+```
+
+#### ResetErrors()
+Clears all accumulated error indicators.
+
+## Compact Function Blocks
+
+### FbSerialInterface_cpt
+Compact serial communication FB for graphical languages.
+
+**Channel Control:**
+- `xOpen` - Open/close channel
+- `Port` - Device interface
+- Communication parameters (baud, data bits, parity, etc.)
+- `xIsOpen` - Channel open status
+
+**Transmitter (WagoTrigger model):**
+- `pTxBuffer` - Data to transmit
+- `udiTxNBytes` - Number of bytes
+- `xTxTrigger` - Start transmission (auto-reset when complete)
+- `eTxStatus` - Transmission result
+
+**Receiver (WagoReceiver model):**
+- `pRxBuffer` - Receive buffer
+- `udiRxBufferSize` - Buffer size
+- `udiRxIndex` - Current position (reset to 0 to restart)
+- `xRxBufferFull` - Buffer full flag
+- `xRxOverflow` - Overflow flag
+
+### FbSerialinterface_WithStatusOutputs
+Convenience wrapper for `FbSerialInterface` with status outputs instead of properties.
+- All main properties mapped to output variables
+- Suitable for graphical languages where property access is difficult
+- For textual languages, prefer base `FbSerialInterface`
+
+## Modular Function Blocks
+
+### FbSerialInterface_Open_mod
+WagoExecute model for opening serial channel.
+- `Connection` - In-out variable linking to `FbSerialInterface` instance
+- All open FBs must connect to same `FbSerialInterface` instance
+
+### FbSerialInterface_Close_mod
+WagoExecute model for closing serial channel.
+
+### FbSerialInterface_Read_mod
+WagoExecute model for reading data.
+- Waits for specified number of bytes before terminating
+- `udiToRead = 0` returns after first attempt
+- May read more bytes if buffer larger than requested
+
+### FbSerialInterface_Write_mod
+WagoExecute model for writing data.
+
+## Special Function Blocks
+
+### FbDataExchangeMode
+Supports data exchange mode for modules 652 and 1652.
+- Specialized FB for specific WAGO modules
+- Enables advanced data exchange capabilities
+
+## Error Handling
+
+### Standard Result Codes
+- `0` - Success/OK
+- `EBADF` - Bad file descriptor (FB not open)
+- `EINVAL` - Invalid parameters
+- `ENOTTY` - Not a typewriter (wrong device type)
+- `ENOTCONN` - Not connected (removable device)
+- `ENOPROTOOPT` - Protocol option not available
+- `EBUSY` - Device busy
+- `EAGAIN` - Try again
+- `EWOULDBLOCK` - Would block
+- `ENODATA` - No data available
+- `EBADMSG` - Bad message (data integrity error)
+- `ENOSYS` - Function not implemented
+- `EUNATCH` - Protocol driver not attached
+- `EPROTONOSUPPORT` - Protocol not supported
+- `EACCES` - Permission denied
+- `EFBIG` - File too big
+- `ENOLINK` - Link severed
+- `EDOTDOT` - RFS specific error
+
+### Error Management
+- Use `ErrorCondition` property to check accumulated errors
+- Call `ResetErrors()` to clear error indicators
+- Check `GetErrorObject()` for detailed hardware error information
+- Handle `DeferredResult` for asynchronous operations
+
+## Usage Patterns
+
+### Basic Serial Communication
+```iec
+VAR
+    fbSerial: FbSerialInterface;
+    txBuffer: ARRAY[0..255] OF BYTE;
+    rxBuffer: ARRAY[0..255] OF BYTE;
+    bytesReceived: UDINT;
+END_VAR
+
+// Open and configure
+fbSerial.OpenAndConfigure(
+    ComInterface := COM1_Interface,
+    udiBaudrate := 9600,
+    eParity := EVEN,
+    eStopBits := ONE,
+    eHandshake := NONE
+);
+
+// Check if ready and write data
+IF fbSerial.nReadyForWrite > 0 THEN
+    fbSerial.Write(ADR(txBuffer), SIZEOF(txBuffer));
+END_IF
+
+// Read available data
+IF fbSerial.nReceiveDataArrived > 0 THEN
+    fbSerial.Read(ADR(rxBuffer), SIZEOF(rxBuffer), bytesReceived);
+END_IF
+
+// Check transmission complete
+IF fbSerial.IsTransmitterEmpty(TRUE) THEN
+    // All data sent
+END_IF
+```
+
+### Compact Interface Usage
+```iec
+VAR
+    fbSerialCpt: FbSerialInterface_cpt;
+    txData: ARRAY[0..99] OF BYTE;
+    rxData: ARRAY[0..255] OF BYTE;
+    rxIndex: UDINT;
+END_VAR
+
+// Configure and open
+fbSerialCpt.Port := COM1_Interface;
+fbSerialCpt.udiBaudrate := 9600;
+fbSerialCpt.eParity := EVEN;
+fbSerialCpt.xOpen := TRUE;
+
+// Transmit data
+fbSerialCpt.pTxBuffer := ADR(txData);
+fbSerialCpt.udiTxNBytes := SIZEOF(txData);
+fbSerialCpt.xTxTrigger := TRUE;
+
+// Receive data
+fbSerialCpt.pRxBuffer := ADR(rxData);
+fbSerialCpt.udiRxBufferSize := SIZEOF(rxData);
+fbSerialCpt.udiRxIndex := rxIndex;
+
+// Process received data
+IF rxIndex > 0 THEN
+    // Process rxData[0..rxIndex-1]
+    rxIndex := 0; // Reset for next reception
+END_IF
+```
+
+### Modular Approach
+```iec
+VAR
+    fbSerialBase: FbSerialInterface;
+    fbOpen: FbSerialInterface_Open_mod;
+    fbRead: FbSerialInterface_Read_mod;
+    fbWrite: FbSerialInterface_Write_mod;
+    openComplete: BOOL;
+END_VAR
+
+// Open connection
+fbOpen.xExecute := TRUE;
+fbOpen.Connection := fbSerialBase;
+fbOpen.ComInterface := COM1_Interface;
+fbOpen.udiBaudrate := 9600;
+
+IF fbOpen.xDone THEN
+    openComplete := TRUE;
+    fbOpen.xExecute := FALSE;
+END_IF
+
+// Use read/write FBs with same connection
+IF openComplete THEN
+    fbRead.Connection := fbSerialBase;
+    fbWrite.Connection := fbSerialBase;
+    // ... perform operations
+END_IF
+```
+
+### Error Handling Pattern
+```iec
+VAR
+    fbSerial: FbSerialInterface;
+    errorResult: ErrorResult;
+END_VAR
+
+// Check for errors
+IF fbSerial.ErrorCondition <> OK THEN
+    // Get detailed error information
+    fbSerial.GetErrorObject(TRUE, errorResult);
+    
+    // Handle specific errors
+    CASE fbSerial.ErrorCondition OF
+        ENOTCONN:
+            // Device disconnected - attempt reconnection
+        EBADMSG:
+            // Data integrity error - clear buffers
+            fbSerial.ClearRxBuffer();
+            fbSerial.ClearTxBuffer();
+        // ... handle other errors
+    END_CASE
+    
+    // Reset error indicators
+    fbSerial.ResetErrors();
+END_IF
+```
+
+## Best Practices
+
+### Performance Optimization
+- Use external buffers for high-throughput applications
+- Match buffer sizes to transmission patterns
+- Monitor `nReadyForWrite` before sending large data blocks
+- Consider cycle time vs. baud rate ratios
+
+### Flow Control
+- Implement proper handshaking for reliable communication
+- Use `SetBusyState()` for application-level flow control
+- Handle buffer overflow conditions gracefully
+- Monitor connection status for removable devices
+
+### Resource Management
+- Close interfaces during online-change
+- Reopen interfaces after configuration changes
+- Use single FB per interface when possible
+- Implement proper cleanup in application stop
+
+### Error Recovery
+- Clear buffers after communication errors
+- Implement retry mechanisms for critical operations
+- Monitor hardware line states when applicable
+- Use `IgnoreIncomingData()` for synchronization recovery
+
+## Hardware Compatibility
+
+### Supported Interfaces
+- Central controller serial ports
+- K-Bus serial interface modules (652, 1652, etc.)
+- USB-to-serial adapters (where supported)
+- RS232, RS485, RS422 interfaces
+
+### Configuration Requirements
+- Proper device identification in I/O configuration
+- Compatible baud rates and communication parameters
+- Hardware handshake line availability (if needed)
+- Driver support for specific modules
+
+## Version History
+
+| Date | Version | Author | Change |
+|------|---------|--------|--------|
+| 08.03.2023 | 1.7.1.2 | WAGO/u010545 | Bugfix FbDataExchangeMode - WAT35454 |
+| 01.03.2023 | 1.7.1.1 | WAGO/u010545 | FbDataExchangeMode added |
+| 08.01.2019 | 1.7.1.0 | WAGO/u015842 | Properties: free placeholder added |
+| 13.04.2018 | 1.7.0.1 | WAGO/u013972 | Resolve documentation error |
+| 11.05.2017 | 1.7.0.0 | WAGO/u013972 | Remove WagoSysStandard |
+| 10.03.2016 | 1.6.1.0 | WAGO/u013972 | Publish WagoSysErrorBase and WagoTypesErrorBase |
+| 02.03.2016 | 1.6.0.0 | WAGO/u010545 | WagoAppErrorBase changed to WagoSysErrorBase/WagoTypesErrorBase |
+
+## Dependencies
+- WagoSysErrorBase - Error handling base classes
+- WagoTypesErrorBase - Error type definitions
+- WagoSysCom - Core communication interfaces
+
+## Important Notes
+
+### Buffer Management
+- Default built-in buffers handle standard situations
+- External buffers recommended for high-throughput applications
+- Buffer size affects performance with high baud rates and large cycle times
+- Data loss possible when switching to smaller buffers
+
+### Handshake Limitations
+- Hardware handshake may restrict manual line control
+- Soft handshake (XON/XOFF) required for busy state functionality
+- Line availability depends on configuration and hardware
+
+### Device Lifecycle
+- Interfaces typically remain open throughout machine operation
+- Close/reopen required during online-change
+- Handle removable device disconnections gracefully
+- Monitor connection status for critical applications
