@@ -1,0 +1,406 @@
+# WagoTypesCom Library v1.6.2.3
+
+## Overview
+Core type definitions and interfaces for serial communication in WAGO PLC systems. This library provides the fundamental building blocks for all serial communication libraries and defines standardized interfaces for hardware abstraction.
+
+**Key Features:**
+- Standardized serial communication interfaces
+- Hardware abstraction layer for COM devices
+- Type definitions for TTY, RS485, and handshake protocols
+- Communication sniffing and debugging support
+- DMX protocol support for lighting control
+
+## Core Interfaces
+
+### I_WagoSysComBase
+Primary interface for serial communication devices. All serial interface FBs implement this interface for standardized access.
+
+**Purpose:**
+- Provides hardware abstraction for serial interfaces
+- Enables cooperative device usage through exclusivity management
+- Standardizes configuration and data exchange methods
+
+**Key Methods:**
+
+#### Device Management
+- `Initialize()` - Initialize FB to well-defined state
+- `Finish()` - Release all resources
+- `AttachExclusively(UDINT)` - Get exclusive device access
+- `TestExclusivity()` - Check if device is exclusively attached
+- `ReleaseExclusivity()` - Release exclusive access
+- `ForceDetachment()` - Force device detachment (recovery)
+
+#### Communication Operations
+- `Configure(...)` - Set communication parameters before opening
+- `Open()` - Open device with configured settings
+- `Close()` - Close device and release resources
+- `Read(...)` - Read data from device
+- `Write(...)` - Write data to device
+- `ClearBuffers()` - Clear internal send/receive buffers
+
+#### Hardware Line Control
+- `IsLineAvailable(eTTYLineID)` - Check if hardware line is controllable
+- `GetLineState(eTTYLineID)` - Read hardware line state
+- `SetLineState(eTTYLineID, BOOL)` - Control hardware line level
+
+#### Status and Monitoring
+- `Cyclic()` - Cyclic processing hook for device
+- `GetErrorObject(...)` - Retrieve detailed error information
+
+**Properties:**
+- `Name` - Device name identifier
+- `IsOpen` - Device open status
+- `IsTransmitterEmpty` - Transmitter buffer status
+- `DeferredResult` - Result of asynchronous operations
+
+### I_WagoSysDmx
+Specialized interface for DMX (Digital Multiplex) lighting control on serial modules like 750-652.
+
+**Properties:**
+- `dwSwVersion` - DMX software version
+- `diDmxStartAddress` - DMX start address (Get/Set)
+
+### I_SupportComSniffer
+Interface for devices that support communication sniffing for debugging.
+
+**Methods:**
+- `RegisterSniffer(I_ComSniffer)` - Register sniffer for monitoring
+- `UnregisterSniffer(I_ComSniffer)` - Remove sniffer
+
+### I_ComSniffer
+Interface for communication monitoring and debugging.
+
+**Methods:**
+- `TxData(...)` - Called when data is transmitted
+- `RxData(...)` - Called when data is received
+
+## Data Types
+
+### eTTYParity
+Parity bit configuration for serial communication.
+
+```
+TYPE eTTYParity :
+(
+    None := 0,      // No parity
+    Odd := 1,       // Odd parity
+    Even := 2,      // Even parity
+    Mark := 3,      // Mark parity (always 1)
+    Space := 4,     // Space parity (always 0)
+    Default := 255  // Device default setting
+);
+END_TYPE
+```
+
+### eTTYStopBits
+Stop bit configuration for frame timing.
+
+```
+TYPE eTTYStopBits :
+(
+    None := 0,          // No stop bits (synchronous)
+    One := 1,           // 1 stop bit
+    OneDotFive := 2,    // 1.5 stop bits
+    Two := 3,           // 2 stop bits
+    Default := 254,     // Device default
+    Minimum := 255,     // Device minimum
+    Maximum := 256      // Device maximum
+);
+END_TYPE
+```
+
+### eTTYHandshake
+Hardware handshake configuration.
+
+```
+TYPE eTTYHandshake :
+(
+    None := 0,              // No handshake
+    XonXoff := 1,          // Software handshake (XON/XOFF)
+    RtsCts_DTE := 2,       // Hardware handshake as DTE
+    RtsCts_DCE := 3,       // Hardware handshake as DCE
+    DsrDcdDtr_DTE := 4,    // Extended handshake as DTE
+    DsrDcdDtr_DCE := 5,    // Extended handshake as DCE
+    Default := 255         // Device default
+);
+END_TYPE
+```
+
+**DTE vs DCE Roles:**
+- **DTE (Data Terminal Equipment)** - Computer, PLC (initiates communication)
+- **DCE (Data Communication Equipment)** - Modem, converter (responds to communication)
+
+### eTTYPhysicalLayer
+Physical layer configuration for electrical characteristics.
+
+```
+TYPE eTTYPhysicalLayer :
+(
+    RS232 := 0,                    // Standard RS232
+    RS485_TwoWire := 1,           // RS485 two-wire (half-duplex)
+    RS485_FourWire := 2,          // RS485 four-wire (full-duplex)
+    RS422 := 3,                   // RS422 differential
+    TTL := 4,                     // TTL levels
+    CurrentLoop_20mA := 5,        // 20mA current loop
+    RS485_TwoWire_NoContinuousSend := 6,  // RS485 without continuous send
+    Default := 255                // Device default
+);
+END_TYPE
+```
+
+### eTTYLineID
+Hardware line identification for manual control.
+
+```
+TYPE eTTYLineID :
+(
+    RTS := 0,       // Request To Send
+    DTR := 1,       // Data Terminal Ready
+    CTS := 2,       // Clear To Send (input)
+    DSR := 3,       // Data Set Ready (input)
+    DCD := 4,       // Data Carrier Detect (input)
+    RI := 5,        // Ring Indicator (input)
+    TXD := 6,       // Transmit Data
+    RXD := 7        // Receive Data
+);
+END_TYPE
+```
+
+## Usage Patterns
+
+### Basic Device Usage
+```
+VAR_GLOBAL
+    COM1: WagoSysSerialInterface IMPLEMENTS I_WagoSysComBase;
+END_VAR
+
+VAR
+    result: DINT;
+    client_id: UDINT := 16#12345678;  // Unique FB identifier
+END_VAR
+
+// Attach device exclusively
+result := COM1.AttachExclusively(client_id);
+IF result = 0 THEN
+    // Configure device
+    result := COM1.Configure(
+        uiBaudrate := 9600,
+        uiDataBits := 8,
+        eParity := eTTYParity.Even,
+        eStopBits := eTTYStopBits.One,
+        eHandshake := eTTYHandshake.None,
+        ePhysicalLayer := eTTYPhysicalLayer.RS485_TwoWire
+    );
+    
+    IF result = 0 THEN
+        // Open device
+        result := COM1.Open();
+    END_IF
+END_IF
+```
+
+### Data Communication
+```
+VAR
+    tx_buffer: ARRAY[0..99] OF BYTE;
+    rx_buffer: ARRAY[0..99] OF BYTE;
+    tx_count: UDINT;
+    rx_count: UDINT;
+    result: DINT;
+END_VAR
+
+// Send data
+result := COM1.Write(
+    pTxBuffer := ADR(tx_buffer),
+    udiTxNBytes := SIZEOF(tx_buffer),
+    udiTxNBytesTransferred => tx_count
+);
+
+// Receive data
+result := COM1.Read(
+    pRxBuffer := ADR(rx_buffer),
+    udiRxBufferSize := SIZEOF(rx_buffer),
+    udiRxNBytes => rx_count
+);
+
+IF rx_count > 0 THEN
+    // Process received data
+END_IF
+```
+
+### Hardware Line Control
+```
+VAR
+    line_available: BOOL;
+    line_state: BOOL;
+    result: DINT;
+END_VAR
+
+// Check if RTS line is controllable
+line_available := COM1.IsLineAvailable(eTTYLineID.RTS);
+
+IF line_available THEN
+    // Set RTS line high
+    result := COM1.SetLineState(eTTYLineID.RTS, TRUE);
+    
+    // Read CTS line state
+    result := COM1.GetLineState(eTTYLineID.CTS, line_state);
+END_IF
+```
+
+### DMX Interface Usage
+```
+VAR
+    dmx_interface: I_WagoSysDmx;
+    start_address: DINT;
+    version: DWORD;
+    result: DINT;
+END_VAR
+
+// Set DMX start address
+result := dmx_interface.diDmxStartAddress.Set(1);  // Channel 1
+
+// Get current start address
+start_address := dmx_interface.diDmxStartAddress.Get();
+
+// Get DMX software version
+version := dmx_interface.dwSwVersion.Get();
+```
+
+### Communication Sniffing
+```
+VAR
+    sniffer: MyCommunicationSniffer;  // Implements I_ComSniffer
+    support_interface: I_SupportComSniffer;
+END_VAR
+
+// Register sniffer for debugging
+support_interface.RegisterSniffer(sniffer);
+
+// Communication monitoring happens automatically
+// Sniffer receives TxData() and RxData() calls
+
+// Unregister when done
+support_interface.UnregisterSniffer(sniffer);
+```
+
+## Error Handling
+
+### Common Result Codes
+- **0** - Success
+- **EBUSY** - Device in use by another client
+- **EBADF** - Device not open
+- **EINVAL** - Invalid parameters
+- **EWOULDBLOCK** - Operation would block, try again
+- **ENOSYS** - Operation not supported
+- **ENOPROTOOPT** - Configuration option not available
+- **EACCES** - Access denied or other error
+- **ENOTCONN** - Device disconnected
+- **EBADMSG** - Data integrity error (parity/frame error)
+
+### Error Recovery Pattern
+```
+VAR
+    retry_count: INT;
+    max_retries: INT := 3;
+    result: DINT;
+END_VAR
+
+REPEAT
+    result := COM1.Operation();
+    IF result = EWOULDBLOCK THEN
+        // Wait and poll DeferredResult
+        WHILE COM1.DeferredResult.Get() = EWOULDBLOCK DO
+            COM1.Cyclic();  // Process cyclic operations
+        END_WHILE
+        result := COM1.DeferredResult.Get();
+    END_IF
+    
+    IF result <> 0 AND retry_count < max_retries THEN
+        retry_count := retry_count + 1;
+        // Optional: clear buffers and retry
+        COM1.ClearBuffers();
+    END_IF
+    
+UNTIL result = 0 OR retry_count >= max_retries;
+```
+
+## Best Practices
+
+### Device Management
+- Always use `AttachExclusively()` before device operations
+- Check `TestExclusivity()` to verify exclusive access
+- Call `ReleaseExclusivity()` when finished
+- Use unique client IDs (FB addresses recommended)
+
+### Configuration
+- Configure device before opening
+- Check return codes for unsupported options
+- Use appropriate physical layer for hardware
+- Consider electrical characteristics (voltage levels, termination)
+
+### Communication
+- Handle `EWOULDBLOCK` for partial transfers
+- Implement timeouts for data operations
+- Clear buffers when recovering from errors
+- Check `IsTransmitterEmpty` before critical timing
+
+### Hardware Handshake
+- Understand DTE vs DCE roles
+- Check line availability before manual control
+- Don't mix manual control with automatic handshake
+- Verify hardware support for chosen handshake mode
+
+### Performance
+- Call `Cyclic()` regularly for devices that need it
+- Use appropriate buffer sizes
+- Consider device response times
+- Implement proper error recovery
+
+## Important Notes
+
+### Exclusivity Management
+The exclusivity mechanism provides cooperative device sharing but doesn't enforce it. Applications must follow the protocol:
+
+1. Call `AttachExclusively()` with unique client ID
+2. Check result for `EBUSY` (device in use)
+3. Perform operations only if attachment successful
+4. Call `ReleaseExclusivity()` when finished
+
+### Deferred Operations
+Some operations may require multiple cycles:
+- Check for `EWOULDBLOCK` return code
+- Poll `DeferredResult` property until completion
+- Call `Cyclic()` to advance operation
+
+### Hardware Limitations
+- Not all devices support all configuration options
+- Some lines may not be available for manual control
+- Physical layer determines electrical characteristics
+- Check device documentation for supported features
+
+### Communication Sniffing
+- Use for debugging and protocol analysis
+- Minimal performance impact when not used
+- Automatic data capture for registered sniffers
+- Remove sniffers when debugging complete
+
+## Version History
+
+| Date | Version | Author | Changes |
+|------|---------|--------|---------|
+| 28.02.2024 | 1.6.2.3 | u010663 | Compiled SP16.3 |
+| 07.03.2023 | 1.6.2.2 | u010545 | Update comments |
+| 01.03.2023 | 1.6.2.1 | u010545 | Expansion of eTTYPhysicalLayer |
+| 14.12.2021 | 1.6.2.0 | u010545 | Expansion of I_WagoSysDmx |
+| 17.08.2021 | 1.6.1.3 | u010545 | Parity mark/space added |
+| 07.12.2020 | 1.6.1.2 | u010545 | I_ComSniffer modified |
+| 24.11.2020 | 1.6.1.1 | u010545 | I_ComSniffer added |
+| 08.01.2019 | 1.6.1.0 | u015842 | Properties: free placeholder added |
+| 02.05.2017 | 1.6.0.0 | u013972 | Add Interfaces from WagoTypesCom_Internal |
+| 23.09.2015 | 1.5.1.0 | u013972 | Add Placeholder Property |
+| 03.07.2015 | 1.5.0.0 | u013972 | Release Version |
+
+---
+
+This library serves as the foundation for all WAGO serial communication libraries, providing standardized interfaces and type definitions for reliable industrial communication.
