@@ -1,0 +1,383 @@
+# WagoSysErrorBase Library v1.6.2.6
+
+## Overview
+
+The WagoSysErrorBase library provides a comprehensive error handling and result management framework for WAGO PLCs. It implements a structured approach to error reporting, status communication, and result processing across all library components.
+
+**Key Features:**
+- Unified error and status result handling
+- Producer/consumer result communication
+- Severity-based error classification
+- Auxiliary information support
+- Factory-based result creation
+- POSIX error code mapping
+- Graphical interface support
+
+## Core Components
+
+The library consists of three main parts:
+
+### 1. typResultItem
+**Result** means an error or a status
+
+A static structure containing:
+- Freely chosen numerical ID of a result (may be ambiguous between libraries)
+- Textual description of the result nature
+- Severity hint (INFO, WARNING, ERROR, etc.)
+
+Each result has such a static structure assigned to it.
+
+### 2. FbResult
+The **ResultObject** passed from result producer to consumer for display or reaction.
+
+The FbResult is compact and contains:
+- Reference to a **ResultItem**
+- Reference to the result producer
+- 32 bits of unspecified auxiliary information
+
+**Important:** Use access methods (get()/set()) only. Never access member variables directly - treat them as `PRIVATE`.
+
+### 3. FbResultFactory
+Auxiliary object for producing **FbResult** objects.
+
+The Factory provides specific information about the producing FB, giving consumers more context about result circumstances.
+
+**Important Caveats:**
+- Factories that have produced a result **must not** be deleted until no instance of that result is used
+- Factories **must not** be used as temporary variables in functions or methods
+
+## Function Blocks
+
+### FbResult
+The fundamental object representing a result (error or status).
+
+**Key Properties (Read-Only):**
+- `eSeverity` - Severity level enumeration
+- `sProducerName` - Name of producing function block
+- `sSeverity` - Severity as string
+- `xError` - Boolean error flag (TRUE for ERROR/EXCEPTION)
+- `uiID` - Numerical result ID
+- `sDescription` - Textual description
+
+**Key Methods:**
+- `SetUp(pResultItem, pProducer, uiAuxInfo)` - Construct result from components
+- `GetSeverity()` - Get severity enumeration
+- `GetSeverityAsString()` - Get severity as string
+- `GetDescription()` - Get description text
+- `GetID()` - Get numerical ID
+- `GetProducerName()` - Get producer class name
+- `GetInstancePath()` - Get instance tree path
+- `GetAuxInfo()` - Get auxiliary information
+- `GetLogLevel()` - Get corresponding log level
+- `IsError()` - Check if result is error/exception
+- `ShowResult()` - Display result content for CFC
+- `GetResultObject()` - Get interface reference
+
+### FbResultFactory
+Factory for creating and managing result objects.
+
+**Declaration Example:**
+```iec
+myResultFactory : FbResultFactory(
+    ADR('MyClassName'), 
+    ADR(ERRORS), 
+    SIZEOF(ERRORS)
+);
+```
+
+**Key Methods:**
+- `SetResult(uiID, oResult)` - Create result from ID
+- `SetResultWithAuxInfo(uiID, uiAuxInfo, oResult)` - Create result with auxiliary data
+- `SetProducerName(sName)` - Assign producer name
+- `SetResultList(pList, uiSize)` - Attach result list
+- `GetProducerName()` - Get producer name
+- `GetInstancePath()` - Get instance path
+
+### FbShowResult
+Displays result object content in graphical format.
+
+**Interface:**
+```iec
+Inputs:
+- I_Result: I_Result - Result object interface
+
+Outputs:
+- uiID: UINT - Result ID
+- sDescription: STRING - Description text
+- sSeverity: STRING - Severity string
+- sProducerName: STRING - Producer name
+- xError: BOOL - Error flag (TRUE for ERROR/EXCEPTION)
+```
+
+**Graphical Illustration:**
+```
+  ┌─────────────────┐
+  │  FbShowResult   │
+  │                 │
+I_Result ──┤         ├── uiID
+           │         ├── sDescription
+           │         ├── sSeverity
+           │         ├── sProducerName
+           │         └── xError
+  └─────────────────┘
+```
+
+### FbPosixFactory
+Special derivative of FbResultFactory for mapping WagoTypes.eResultCode (POSIX codes) to result objects.
+
+Works by default with text table "PosixText.RESULTCODERERRORS".
+
+## Interfaces
+
+### I_Result
+Interface implemented by FbResult and optionally by user function blocks.
+
+Function blocks implementing this interface can connect to FbShowResult input.
+
+### I_ResultProperties
+Extended interface providing additional result properties and access methods.
+
+## Usage Patterns
+
+### Basic Result Handling
+
+#### Case 1: Error/Status in Your FB
+```iec
+VAR
+    myResultFactory: FbResultFactory(
+        ADR('MyFunctionBlock'),
+        ADR(MY_ERRORS),
+        SIZEOF(MY_ERRORS)
+    );
+    oResult: FbResult;
+END_VAR
+
+// Set result code 3
+myResultFactory.SetResult(3, oResult);
+```
+
+#### Case 2: Routing Sub-FB Results
+```iec
+VAR
+    SubFb: SomeOtherFB;
+    my_oResult: FbResult;
+END_VAR
+
+// Route sub-result through your own result
+my_oResult := SubFb.oResult;
+```
+
+### Error Detection
+```iec
+IF oResult.IsError() THEN
+    // Handle error condition
+    error_description := oResult.GetDescription();
+    error_id := oResult.GetID();
+    producer_name := oResult.GetProducerName();
+END_IF
+```
+
+### Result Display
+```iec
+VAR
+    fbShow: FbShowResult;
+END_VAR
+
+fbShow(I_Result := myFunctionBlock.oResult);
+
+IF fbShow.xError THEN
+    // Display error information
+    HMI_ErrorID := fbShow.uiID;
+    HMI_ErrorText := fbShow.sDescription;
+    HMI_Severity := fbShow.sSeverity;
+END_IF
+```
+
+### Factory with Auxiliary Information
+```iec
+VAR
+    additional_info: DWORD := 16#12345678;
+END_VAR
+
+myResultFactory.SetResultWithAuxInfo(
+    uiID := 5,
+    uiAuxInfo := additional_info,
+    oResult := oResult
+);
+
+// Later retrieve auxiliary info
+aux_data := oResult.GetAuxInfo();
+```
+
+## Severity Levels
+
+The library uses severity enumeration to classify results:
+
+- **INFO** - Informational message
+- **WARNING** - Warning condition
+- **ERROR** - Error condition
+- **EXCEPTION** - Critical exception
+
+Error detection: `xError` is TRUE when severity equals ERROR or EXCEPTION.
+
+## POSIX Integration
+
+### Using FbPosixFactory
+```iec
+VAR
+    posixFactory: FbPosixFactory;
+    posix_result: FbResult;
+    return_code: eResultCode;
+END_VAR
+
+// Map POSIX error code to result
+posixFactory.SetResult(return_code, posix_result);
+```
+
+## Best Practices
+
+### Factory Management
+- Declare factories at appropriate scope (not as temporary variables)
+- Ensure factories persist longer than any results they produce
+- Use meaningful producer names for debugging
+
+### Result Propagation
+```iec
+// Good: Direct assignment for sub-results
+my_oResult := SubFb.oResult;
+
+// Good: Create new result for your own errors
+myFactory.SetResult(MY_ERROR_CODE, my_oResult);
+```
+
+### Error Handling Pattern
+```iec
+VAR
+    operation_result: FbResult;
+    show_result: FbShowResult;
+END_VAR
+
+// Perform operation
+SomeOperation(oResult => operation_result);
+
+// Check and display results
+show_result(I_Result := operation_result);
+
+IF show_result.xError THEN
+    // Log error
+    LogError(show_result.sDescription);
+    
+    // Take corrective action based on ID
+    CASE show_result.uiID OF
+        1: HandleTimeoutError();
+        2: HandleCommunicationError();
+        3: HandleConfigurationError();
+    END_CASE
+END_IF
+```
+
+### Auxiliary Information Usage
+```iec
+// Store additional context
+error_context := 16#1000 + channel_number;
+myFactory.SetResultWithAuxInfo(
+    ERROR_INVALID_CHANNEL,
+    error_context,
+    oResult
+);
+
+// Later extract context
+IF oResult.IsError() THEN
+    channel := oResult.GetAuxInfo() AND 16#FF;
+END_IF
+```
+
+## Important Notes
+
+### Memory Management
+- **Never declare FbResult instances as RETAIN** - may hold invalid information
+- Results may reference memory that becomes invalid
+- Factories must outlive all results they create
+
+### Thread Safety
+- Results are not inherently thread-safe
+- Protect shared results with appropriate synchronization
+- Consider result copying for cross-thread communication
+
+### Performance Considerations
+- Results are lightweight objects suitable for frequent use
+- Factory lookup operations are optimized
+- Avoid unnecessary result creation in high-frequency loops
+
+### Debugging Support
+- Use `GetInstancePath()` to trace result origins
+- Producer names help identify error sources
+- Auxiliary information provides additional context
+
+## Error Codes
+
+The library uses standard error handling:
+- Results contain severity classification
+- Numerical IDs are library-specific
+- Descriptions provide human-readable information
+- POSIX mapping available for system errors
+
+## Version History
+
+| Date       | Version | Author  | Change |
+|------------|---------|---------|--------|
+| 17.06.2021 | 1.6.2.6 | u010545 | Mark qualified only at WagoTypesErrorBase removed |
+| 28.04.2021 | 1.6.2.5 | u010545 | Bugfix for unknown producer |
+| 27.04.2021 | 1.6.2.4 | u010545 | Bugfix for unknown ID |
+| 19.03.2021 | 1.6.2.3 | u010545 | Bugfix for init |
+| 18.03.2021 | 1.6.2.2 | u010545 | Bugfix for init |
+| 01.03.2021 | 1.6.2.1 | u010545 | Bugfix for retain |
+| 15.02.2021 | 1.6.2.0 | u010545 | I_ResultProperties added |
+| 25.08.2020 | 1.6.1.1 | u010545 | Properties for FbResult added |
+| 08.01.2019 | 1.6.1.0 | u015842 | Properties: free placeholder added |
+| 15.12.2016 | 1.6.0.0 | u010545 | Default ResultLogger removed |
+| 04.07.2016 | 1.5.0.3 | u010545 | Documentation expanded |
+| 29.03.2016 | 1.5.0.2 | u010545 | String 'WagoApp...' changed to 'WagoSys...' |
+| 29.02.2016 | 1.5.0.1 | u010545 | Categories modified |
+| 24.02.2016 | 1.5.0.0 | UU      | First version |
+
+## Integration with Other Libraries
+
+### Standard Usage in WAGO Libraries
+Most WAGO libraries follow this error handling pattern:
+```iec
+VAR
+    communication_fb: FbSomeWagoLibrary;
+    result_display: FbShowResult;
+END_VAR
+
+communication_fb();
+result_display(I_Result := communication_fb.oResult);
+
+IF result_display.xError THEN
+    // Handle library-specific errors
+END_IF
+```
+
+### Custom Library Integration
+```iec
+// In your library's error definitions
+VAR_GLOBAL CONSTANT
+    MY_LIBRARY_ERRORS: ARRAY[1..10] OF typResultItem := [
+        (uiID := 1, eSeverity := eSeverity.ERROR, sDescription := 'Connection timeout'),
+        (uiID := 2, eSeverity := eSeverity.WARNING, sDescription := 'Slow response'),
+        // ... more errors
+    ];
+END_VAR
+
+// In your function block
+VAR
+    myFactory: FbResultFactory(
+        ADR('MyLibraryFB'),
+        ADR(MY_LIBRARY_ERRORS),
+        SIZEOF(MY_LIBRARY_ERRORS)
+    );
+END_VAR
+```
+
+This error handling framework provides consistent, reliable error management across the entire WAGO PLC ecosystem, ensuring robust and maintainable automation applications.
