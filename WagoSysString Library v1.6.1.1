@@ -1,0 +1,364 @@
+# WagoSysString Library v1.6.1.1
+
+## Overview
+Core string manipulation library for WAGO PLCs providing specialized low-level string operations used primarily by other libraries and for system-level programming.
+
+**Key Features:**
+- POSIX-compliant string operations
+- IPv4 address conversion utilities
+- Hexadecimal and decimal string parsing
+- Version string handling
+- Type conversion functions
+- Safe buffer operations
+
+## Core Functions
+
+### String Manipulation
+
+#### `strnappend`
+Appends a string in-place to the tail of another string.
+
+```iec
+FUNCTION strnappend : eResultCode
+VAR_INPUT
+    pDestination : POINTER TO BYTE;    // Destination buffer
+    udiDestSize  : UDINT;              // Size of destination buffer
+    pSource      : POINTER TO BYTE;    // Source string to append
+END_VAR
+```
+
+**Example:**
+```iec
+VAR
+    sBuffer    : STRING(255);
+    someData_a : STRING(255) := 'Hello';
+    someData_b : STRING(255) := ' World!';
+END_VAR
+
+sBuffer := '';
+strnappend(sBuffer, SIZEOF(sBuffer), ADR(someData_a));
+strnappend(sBuffer, SIZEOF(sBuffer), ADR(someData_b));
+// Result: sBuffer contains 'Hello World!'
+```
+
+#### `strnappendChars`
+Appends a number of identical characters to the tail of a string.
+
+```iec
+FUNCTION strnappendChars : eResultCode
+VAR_INPUT
+    pDestination : POINTER TO BYTE;    // Destination buffer
+    udiDestSize  : UDINT;              // Size of destination buffer
+    cChar        : eChar;              // Character to append
+    udiCount     : UDINT;              // Number of characters to append
+END_VAR
+```
+
+**Example:**
+```iec
+sBuffer := 'Hello World!';
+strnappendChars(sBuffer, SIZEOF(sBuffer), eChar.H, 5);
+// Result: sBuffer contains 'Hello World!HHHHH'
+```
+
+#### `strnlen`
+Computes the length of a string with size limit (POSIX-compliant).
+
+```iec
+FUNCTION strnlen : UDINT
+VAR_INPUT
+    pString  : POINTER TO BYTE;    // String to measure
+    udiSize  : UDINT;              // Maximum size to check
+END_VAR
+```
+
+Returns the length of the string if less than `udiSize`, or `udiSize` if no terminating zero is found within the first `udiSize` bytes.
+
+#### `skipspaces`
+Detects the first non-space character in a string.
+
+```iec
+FUNCTION skipspaces : eResultCode
+VAR_INPUT
+    pString : POINTER TO BYTE;    // Input string
+    pLimit  : POINTER TO BYTE;    // Limit pointer
+END_VAR
+VAR_OUTPUT
+    pEnd    : POINTER TO BYTE;    // First non-space character
+END_VAR
+```
+
+### String Conversion Functions
+
+#### `strtod_unsignedDecimal`
+Converts a part of a string to an unsigned decimal value.
+
+```iec
+FUNCTION strtod_unsignedDecimal : eResultCode
+VAR_INPUT
+    pString : POINTER TO BYTE;    // Input string
+END_VAR
+VAR_OUTPUT
+    pEnd    : POINTER TO BYTE;    // Pointer after last converted character
+    ulValue : ULINT;              // Converted value
+END_VAR
+```
+
+#### `strtod_hex`
+Converts a part of a hex-string to a numerical value.
+
+```iec
+FUNCTION strtod_hex : eResultCode
+VAR_INPUT
+    pString : POINTER TO BYTE;    // Input hex string
+END_VAR
+VAR_OUTPUT
+    pEnd    : POINTER TO BYTE;    // Pointer after last converted character
+    ulValue : ULINT;              // Converted value
+END_VAR
+```
+
+#### `char_to_hexbyte`
+Converts a hexadecimal character to numerical representation.
+
+```iec
+FUNCTION char_to_hexbyte : eResultCode
+VAR_INPUT
+    cHexChar : eChar;    // Hexadecimal character (0-9, A-F, a-f)
+END_VAR
+VAR_OUTPUT
+    byValue  : BYTE;     // Numerical value (0-15)
+END_VAR
+```
+
+**Example:**
+```iec
+char_to_hexbyte('A') returns 10
+char_to_hexbyte('f') returns 15
+```
+
+### Type Conversion
+
+#### `ASCIIByte_To_String`
+Performs a typecast from BYTE to STRING.
+
+```iec
+FUNCTION ASCIIByte_To_String : STRING
+VAR_INPUT
+    byAscii : BYTE;    // ASCII byte value
+END_VAR
+```
+
+**Example:**
+```iec
+ASCIIByte_To_String(65) = 'A'
+```
+
+#### `String_To_ASCIIByte`
+Returns the first character from a string as byte value.
+
+```iec
+FUNCTION String_To_ASCIIByte : BYTE
+VAR_INPUT
+    sString : STRING;    // Input string
+END_VAR
+```
+
+**Example:**
+```iec
+String_To_ASCIIByte('A') = 16#41
+```
+
+### IPv4 Address Conversion
+
+#### `convert_IPv4Addr_to_ByteStream`
+Converts an IPv4 address string to a 4-byte network-order stream.
+
+```iec
+FUNCTION convert_IPv4Addr_to_ByteStream : eResultCode
+VAR_INPUT
+    sIPv4Addr    : STRING;             // IPv4 address string
+    pByteStream  : POINTER TO BYTE;    // Output byte buffer
+    udiBufferSize: UDINT;              // Size of output buffer (must be ≥4)
+END_VAR
+```
+
+**Example:**
+```iec
+VAR
+    sIP : STRING := '192.168.1.100';
+    aBytes : ARRAY[0..3] OF BYTE;
+END_VAR
+
+convert_IPv4Addr_to_ByteStream(sIP, ADR(aBytes), SIZEOF(aBytes));
+// Result: aBytes[0]=192, aBytes[1]=168, aBytes[2]=1, aBytes[3]=100
+```
+
+#### `convert_ByteStream_to_Ipv4Addr`
+Converts a 4-byte stream to a readable IPv4 address string.
+
+```iec
+FUNCTION convert_ByteStream_to_Ipv4Addr : STRING
+VAR_INPUT
+    pByteStream : POINTER TO BYTE;    // 4-byte input stream (big-endian)
+END_VAR
+```
+
+**Example:**
+```iec
+VAR
+    aBytes : ARRAY[0..3] OF BYTE := [192, 168, 1, 100];
+    sResult : STRING;
+END_VAR
+
+sResult := convert_ByteStream_to_Ipv4Addr(ADR(aBytes));
+// Result: sResult = '192.168.1.100'
+```
+
+### Version String Handling
+
+#### `convert_VersionString_to_DWORD`
+Converts a version string to a DWORD representation.
+
+```iec
+FUNCTION convert_VersionString_to_DWORD : DWORD
+VAR_INPUT
+    sVersion : STRING;    // Version string (e.g., '1.2.0.8')
+END_VAR
+```
+
+**Example:**
+```iec
+convert_VersionString_to_DWORD('1.2.0.8') = 16#01020008
+```
+
+## Data Types
+
+### `eChar`
+Enumeration for character constants (renamed from `char` in v1.6.1.1).
+
+### Result Codes
+All functions return standard error codes:
+
+| Code | Description |
+|------|-------------|
+| `0` | Successful operation |
+| `EINVAL` | Invalid argument (null pointer, insufficient buffer size) |
+| `EFAULT` | Memory fault (inconsistent buffer content, pointer out of range) |
+| `ERANGE` | Value out of range (overflow, underflow, truncation) |
+| `ENODATA` | No valid data found (invalid character, no digits) |
+
+## Error Handling
+
+### Standard Pattern
+```iec
+VAR
+    eResult : eResultCode;
+    sBuffer : STRING(255);
+END_VAR
+
+eResult := strnappend(sBuffer, SIZEOF(sBuffer), ADR('Hello'));
+
+IF eResult <> 0 THEN
+    CASE eResult OF
+        EINVAL:
+            // Handle invalid parameters
+        EFAULT:
+            // Handle memory fault
+        ERANGE:
+            // Handle overflow/truncation
+        ENODATA:
+            // Handle no valid data
+    END_CASE
+END_IF
+```
+
+### Result Objects
+Use the built-in result factory for standardized error handling:
+
+```iec
+VAR
+    eMyResult : eResultCode;
+    oError    : FbResult;
+END_VAR
+
+eMyResult := myFunction(...);
+WagoSysString.LibraryResult.Factory.SetResult(eMyResult, oError);
+```
+
+## Best Practices
+
+### Buffer Safety
+- Always check buffer sizes before operations
+- Use `SIZEOF()` for automatic size calculation
+- Handle truncation gracefully when `ERANGE` occurs
+
+### Performance Considerations
+- Use appropriate buffer sizes to avoid frequent reallocations
+- Consider using WagoAppString for higher-level operations
+- Cache conversion results when possible
+
+### IPv4 Validation
+```iec
+VAR
+    sIP : STRING := '192.168.1.100';
+    aBytes : ARRAY[0..3] OF BYTE;
+    eResult : eResultCode;
+END_VAR
+
+eResult := convert_IPv4Addr_to_ByteStream(sIP, ADR(aBytes), SIZEOF(aBytes));
+IF eResult = 0 THEN
+    // Valid IP address
+ELSIF eResult = ERANGE THEN
+    // Invalid IP format
+ELSIF eResult = EINVAL THEN
+    // Buffer too small or null pointer
+END_IF
+```
+
+### String Parsing
+```iec
+VAR
+    sNumber : STRING := '12345ABC';
+    pEnd : POINTER TO BYTE;
+    ulValue : ULINT;
+    eResult : eResultCode;
+END_VAR
+
+eResult := strtod_unsignedDecimal(ADR(sNumber), pEnd, ulValue);
+IF eResult = 0 THEN
+    // ulValue contains 12345
+    // pEnd points to 'A' (first non-digit)
+END_IF
+```
+
+## Important Notes
+
+### Compatibility
+- Functions marked as compatibility features should be replaced with WagoAppString equivalents in new code
+- This library is primarily for system-level programming and internal library use
+- For application development, consider WagoAppString for more comprehensive functionality
+
+### Memory Management
+- All pointer operations require careful memory management
+- Ensure destination buffers are adequately sized
+- Check for null pointers before function calls
+
+### Endianness
+- IPv4 conversion functions handle network byte order automatically
+- No endianness concerns for single-byte operations
+
+## Version History
+
+| Date | Version | Author | Changes |
+|------|---------|--------|---------|
+| 05.04.2022 | 1.6.1.1 | u1010371 | Rename object type "char" to "eChar" |
+| 08.01.2019 | 1.6.1.0 | u015842 | Properties: free placeholder added |
+| 02.03.2016 | 1.6.0.0 | u010545 | WagoAppErrorBase changed to WagoSysErrorBase |
+| 29.09.2015 | 1.5.2.0 | u013972 | Resolve libraries with placeholders |
+| 23.09.2015 | 1.5.1.0 | u013972 | Add Placeholder Property |
+| 23.06.2015 | 1.5.0.0 | u013972 | Release version |
+
+---
+
+*This library provides specialized string manipulation functions used mainly by other libraries. For comprehensive string operations in application development, consider using WagoAppString which includes this library automatically.*
