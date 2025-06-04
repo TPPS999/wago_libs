@@ -1,0 +1,412 @@
+WagoAppString Library v1.6.3.4
+Show Image
+Show Image
+Show Image
+
+Comprehensive string manipulation library for WAGO PLCs that extends standard CODESYS string functions with enhanced functionality, performance improvements, and better error handling.
+
+🚀 Key Features
+
+Extended String Support - Handle strings beyond 255-byte CODESYS limit
+Printf-Style Formatting - C99-compatible formatting with type safety
+In-Place Operations - High-performance memory-efficient string manipulation
+Comprehensive Error Handling - Detailed error detection and reporting
+Date/Time Conversions - Flexible string ↔ datetime conversions
+Memory Safety - Overflow protection and bounds checking
+
+📚 Table of Contents
+
+Installation
+Quick Start
+String Formatting
+String Operations
+Search & Extract
+Date/Time Conversion
+Error Handling
+API Reference
+Examples
+
+🔧 Installation
+
+Add WagoAppString library to your CODESYS project
+Include required dependencies:
+
+WagoSysString
+WagoSysErrorBase
+
+
+
+iec// Import the library
+IMPORT WagoAppString.*;
+⚡ Quick Start
+iecVAR
+    sBuffer : STRING(1024);
+    iValue : INT := 42;
+    rTemperature : REAL := 23.5;
+    result : eResultCode;
+END_VAR
+
+// Printf-style formatting
+sMessage := Format2('Sensor %i: Temperature = %5.1f°C', 
+                   ADR(iValue), ADR(rTemperature));
+// Result: "Sensor 42: Temperature =  23.5°C"
+
+// Safe string building
+sBuffer := '';
+result := StrAppend(sBuffer, SIZEOF(sBuffer), 'Status: ');
+result := StrAppend(sBuffer, SIZEOF(sBuffer), 'OK');
+// Result: "Status: OK"
+🎯 String Formatting
+Format Functions (Format1-Format9)
+Printf-style string formatting with type-safe variable substitution.
+iec// Basic formatting
+sResult := Format1('Value: %i', ADR(intValue));
+
+// Multiple variables
+sResult := Format3('X=%5.2f Y=%5.2f Z=%5.2f', 
+                  ADR(x), ADR(y), ADR(z));
+
+// Zero-padded integers
+sResult := Format2('Step %03i of %03i', ADR(current), ADR(total));
+// Result: "Step 005 of 100"
+📋 Format Specifiers
+SpecifierDescriptionExample%iSigned integer%i, %5i, %05i%uUnsigned integer%ui, %udi%xHexadecimal%x, %#x (0x prefix)%fFloating point%f, %6.2f%cCharacter%c, %#c (show non-printable)%sString%s, %10s%tTime%{%h:%m:%s}t%eEnumeration%{off,on,error}e%pPointer%p, %#p
+🏷️ Type Modifiers
+ModifierSizeExample%bByte (8-bit)%bi, %bx%wWord (16-bit)%wi (default)%dDouble (32-bit)%di, %df%lLong (64-bit)%li, %lf
+🎨 Formatting Flags
+FlagDescriptionExample1-9Field width%5i → "   42"0Zero padding%05i → "00042"-Left align%-5i → "42   "+Show sign%+i → "+42".nPrecision%6.2f → " 23.50"#Alternate form%#x → "0x2A"
+⏰ Time Formatting
+iec// Custom time formats
+sTime := Format1('Current time: %{%h:%m:%s}zt', ADR(timeComponents));
+sDate := Format1('Date: %{%Y-%M-%D}zt', ADR(timeComponents));
+sFull := Format1('Timestamp: %{%Y-%M-%D %h:%m:%s}zt', ADR(timeComponents));
+🔢 Enumeration Formatting
+iec// Define enum representation
+sStatus := Format1('Motor: %{stopped,starting,running,fault}e', ADR(motorState));
+
+// With explicit values
+sAlarm := Format1('Level: %{0:ok,1:warning,5:critical,*:unknown}e', ADR(alarmLevel));
+🔄 String Operations
+In-Place Operations
+High-performance operations that modify strings directly in memory.
+StrAppend - Safe String Concatenation
+iecFUNCTION StrAppend : eResultCode
+VAR_IN_OUT sBuffer : STRING(1); END_VAR
+VAR_INPUT 
+    udiSize : UDINT;      // Buffer size
+    sAppendee : STRING;   // String to append
+END_VAR
+
+// Example
+VAR
+    sLog : STRING(512);
+    result : eResultCode;
+END_VAR
+
+sLog := '[INFO] ';
+result := StrAppend(sLog, SIZEOF(sLog), 'System started');
+result := StrAppend(sLog, SIZEOF(sLog), ' successfully');
+
+IF result = ERANGE THEN
+    // Handle buffer overflow
+END_IF
+StrInsert - Insert Substring
+iecsBuffer := 'Hello World!';
+result := StrInsert(sBuffer, SIZEOF(sBuffer), 7, 'Big ');
+// Result: "Hello Big World!"
+StrDelete - Remove Substring
+iecsBuffer := 'Hello Big World!';
+result := StrDelete(sBuffer, SIZEOF(sBuffer), 7, 4);
+// Result: "Hello World!"
+StrAppendChars - Repeat Characters
+iec// Add padding
+result := StrAppendChars(sBuffer, SIZEOF(sBuffer), eChar.Space, 5);
+
+// Create separator line
+sSeparator := '';
+StrAppendChars(sSeparator, SIZEOF(sSeparator), eChar.Minus, 40);
+// Result: "----------------------------------------"
+String Manipulation
+Case Conversion
+iecsUpper := UpperCase('Hello World');  // "HELLO WORLD"
+sLower := LowerCase('Hello World');  // "hello world"
+Padding Functions
+iec// Left padding for alignment
+sPadded := PaddLeft('123', 6, eChar.Num0);     // "000123"
+sPadded := PaddLeft('5', 3, eChar.Space);      // "  5"
+
+// Right padding
+sPadded := PaddRight('Name', 10, eChar.Space); // "Name      "
+String Trimming
+iec// Remove whitespace
+sTrimmed := Trim('  Hello World  ');  // "Hello World"
+
+// Truncate string
+StrCutLeft(sBuffer, SIZEOF(sBuffer), 10);  // Keep first 10 chars
+🔍 Search & Extract
+Search Functions
+Find Substrings
+iecVAR
+    sText : STRING := 'The quick brown fox jumps over the lazy dog';
+    pos : UDINT;
+END_VAR
+
+// Find from left
+pos := StrFindLeft(sText, SIZEOF(sText), 'the', 1);   // pos = 32
+pos := FindLeft(sText, 'fox', 1);                     // pos = 17
+
+// Find from right  
+pos := StrFindRight(sText, SIZEOF(sText), 'the', 0);  // pos = 32
+pos := FindRight(sText, 'the', 0);                    // pos = 32
+Find Characters
+iec// Find specific character
+pos := StrFindChar(sText, SIZEOF(sText), eChar.Space, 1);     // First space
+pos := StrFindLastChar(sText, SIZEOF(sText), eChar.Space, 0); // Last space
+Extract Functions
+Extract Substrings
+iec// Extract by position and length
+sSub := StrExtractSub(sText, SIZEOF(sText), 5, 5);  // Extract 5 chars from pos 5
+
+// Extract single character
+ch := StrExtractChar(sText, 10);  // Character at position 10
+Token Extraction (CSV Parsing)
+iecVAR
+    sCSV : STRING := 'apple,banana,cherry,date';
+    sToken : STRING;
+    udiIndex : UDINT := 1;
+    udiNext : UDINT;
+    aFruits : ARRAY[1..10] OF STRING;
+    iCount : INT := 0;
+END_VAR
+
+// Parse CSV data
+WHILE udiIndex <> 0 AND iCount < 10 DO
+    iCount := iCount + 1;
+    aFruits[iCount] := StrExtractToken(sCSV, SIZEOF(sCSV), 
+                                      eChar.Comma, udiIndex, 
+                                      udiNext => udiIndex);
+END_WHILE
+// aFruits[1] = "apple", aFruits[2] = "banana", etc.
+📅 Date/Time Conversion
+String to Date/Time
+iec// Date parsing (multiple formats supported)
+dateVal := FuStringToDate('2023-12-25', 0);    // YYYY-MM-DD
+dateVal := FuStringToDate('25/12/2023', 1);    // DD/MM/YYYY  
+dateVal := FuStringToDate('12/25/2023', 2);    // MM/DD/YYYY
+dateVal := FuStringToDate('25.12.2023', 3);    // DD.MM.YYYY
+
+// Time parsing
+timeVal := FuStringToTod('14:30:00', 1);       // HH:MM:SS
+timeVal := FuStringToTod('14:30', 0);          // HH:MM
+
+// DateTime parsing
+dtVal := FuStringToDT('2023-12-25 14:30:45', 10);  // Full format
+Date/Time to String
+iec// Date formatting
+sDate := FuDateToString(TODAY(), 0);    // "2023-12-25"
+sDate := FuDateToString(TODAY(), 1);    // "25/12/2023"
+sDate := FuDateToString(TODAY(), 3);    // "25.12.2023"
+
+// Time formatting  
+sTime := FuTodToString(TIME_OF_DAY(), 1);  // "14:30:45"
+sTime := FuTodToString(TIME_OF_DAY(), 0);  // "14:30"
+
+// DateTime formatting
+sDateTime := FuDTToString(NOW(), 0);       // "2023-12-25 14:30"
+sDateTime := FuDTToString(NOW(), 10);      // "2023-12-25 14:30:45"
+Custom Time Formatting
+iec// Flexible time component formatting
+sCustom := TimeComponents_To_String(timeComp, '%h:%m:%s');     // "14:30:45"
+sCustom := TimeComponents_To_String(timeComp, '%D.%M.%Y');     // "25.12.2023"
+sCustom := TimeComponents_To_String(timeComp, '%W, %D.%M.%Y'); // "Mon, 25.12.2023"
+Time Format Codes:
+
+%h - Hour (00-23)
+%m - Minute (00-59)
+%s - Second (00-60)
+%D - Day (01-31)
+%M - Month (01-12)
+%Y - Year (1970-25xx)
+%W - Weekday (Mon, Tue, ...)
+
+⚠️ Error Handling
+Return Codes
+All in-place operations return standardized error codes:
+CodeValueDescriptionOK0SuccessERANGEBuffer overflow (truncated)EINVALInvalid parametersEDOMDomain errorENOSPCNo space availableEFAULTMemory fault
+Error Handling Pattern
+iecVAR
+    result : eResultCode;
+    sBuffer : STRING(100);
+END_VAR
+
+result := StrAppend(sBuffer, SIZEOF(sBuffer), 'Some very long text...');
+
+CASE result OF
+    0:
+        // Success - continue
+    ERANGE:
+        // Buffer overflow - handle truncation
+        LogError('String buffer overflow detected');
+    EINVAL:
+        // Invalid parameters
+        LogError('Invalid string operation parameters');
+    ELSE
+        // Other errors
+        LogError(CONCAT('String operation failed: ', INT_TO_STRING(result)));
+END_CASE
+📖 API Reference
+🔤 String Concatenation
+FunctionDescriptionConcat3(s1,s2,s3)Concatenate 3 stringsConcat4(s1,s2,s3,s4)Concatenate 4 strings...Up to Concat9()StrAppend(buffer,size,text)Safe append with overflow checkStrAppendCRLF(buffer,size)Append line ending
+🔍 String Analysis
+FunctionDescriptionLength(s)String length (max 255)StrLength(buffer,size)Extended string lengthFindLeft(s,sub,start)Find substring from leftFindRight(s,sub,start)Find substring from right
+✂️ String Modification
+FunctionDescriptionStrInsert(buffer,size,pos,text)Insert substringStrDelete(buffer,size,pos,len)Delete substringUpperCase(s)Convert to uppercaseLowerCase(s)Convert to lowercaseTrim(s)Remove leading/trailing spaces
+🔧 Utility Functions
+FunctionDescriptionChar_to_String(byte)Convert byte to stringFirstChar(s)Get first character as byteByte_to_Hexstring(b)Convert byte to hex stringVersion_to_String(dword)Convert version to "x.y.z.w"
+💡 Examples
+🏭 Industrial Logging System
+iecVAR
+    sLogEntry : STRING(512);
+    iAlarmID : INT := 1001;
+    sDevice : STRING := 'Motor_01';
+    rValue : REAL := 85.7;
+    result : eResultCode;
+END_VAR
+
+// Build structured log entry
+sLogEntry := '';
+result := StrAppend(sLogEntry, SIZEOF(sLogEntry), '[');
+result := StrAppend(sLogEntry, SIZEOF(sLogEntry), FuDTToString(NOW(), 10));
+result := StrAppend(sLogEntry, SIZEOF(sLogEntry), '] ALARM ');
+result := StrAppend(sLogEntry, SIZEOF(sLogEntry), 
+                   Format3('%04i on %s: Temperature %6.1f°C', 
+                          ADR(iAlarmID), ADR(sDevice), ADR(rValue)));
+
+// Result: "[2023-12-25 14:30:45] ALARM 1001 on Motor_01: Temperature   85.7°C"
+📊 Data Report Generation
+iecVAR
+    sReport : STRING(2048);
+    aValues : ARRAY[1..5] OF REAL := [12.3, 45.6, 78.9, 23.4, 56.7];
+    i : INT;
+    rSum : REAL := 0;
+END_VAR
+
+// Generate measurement report
+sReport := 'MEASUREMENT REPORT';
+StrAppendCRLF(sReport, SIZEOF(sReport));
+StrAppendChars(sReport, SIZEOF(sReport), eChar.Equals, 40);
+StrAppendCRLF(sReport, SIZEOF(sReport));
+
+FOR i := 1 TO 5 DO
+    StrAppend(sReport, SIZEOF(sReport), 
+              Format2('Channel %i: %8.2f units', ADR(i), ADR(aValues[i])));
+    StrAppendCRLF(sReport, SIZEOF(sReport));
+    rSum := rSum + aValues[i];
+END_FOR
+
+StrAppendCRLF(sReport, SIZEOF(sReport));
+StrAppend(sReport, SIZEOF(sReport), 
+          Format1('Total:      %8.2f units', ADR(rSum)));
+🌐 Communication Protocol Builder
+iecVAR
+    sCommand : STRING(256);
+    iDeviceID : INT := 5;
+    iRegister : INT := 100;
+    iValue : INT := 1500;
+    bChecksum : BYTE;
+END_VAR
+
+// Build Modbus-like command
+sCommand := Format3(':%02X%04X%04X', 
+                   ADR(iDeviceID), ADR(iRegister), ADR(iValue));
+
+// Calculate simple checksum
+bChecksum := CalculateChecksum(sCommand);
+StrAppend(sCommand, SIZEOF(sCommand), 
+          Format1('%02X', ADR(bChecksum)));
+StrAppendCRLF(sCommand, SIZEOF(sCommand));
+
+// Result: ":050064005DC<checksum>\r\n"
+📁 Configuration File Parser
+iecVAR
+    sConfigLine : STRING := 'temperature_limit=75.5,pressure_max=150,mode=auto';
+    sKey, sValue : STRING;
+    udiIndex : UDINT := 1;
+    udiNext, udiEqualPos : UDINT;
+    typConfig : STRUCT
+        rTempLimit : REAL;
+        iPressureMax : INT;
+        sMode : STRING;
+    END_STRUCT;
+END_VAR
+
+// Parse configuration line
+WHILE udiIndex <> 0 DO
+    // Extract key=value pair
+    sPair := StrExtractToken(sConfigLine, SIZEOF(sConfigLine), 
+                            eChar.Comma, udiIndex, udiNext => udiIndex);
+    
+    // Split on equals sign
+    udiEqualPos := FindLeft(sPair, '=', 1);
+    IF udiEqualPos > 0 THEN
+        sKey := LEFT(sPair, udiEqualPos - 1);
+        sValue := RIGHT(sPair, LEN(sPair) - udiEqualPos);
+        
+        // Process configuration values
+        CASE sKey OF
+            'temperature_limit':
+                typConfig.rTempLimit := STRING_TO_REAL(sValue);
+            'pressure_max':
+                typConfig.iPressureMax := STRING_TO_INT(sValue);
+            'mode':
+                typConfig.sMode := sValue;
+        END_CASE
+    END_IF
+END_WHILE
+🎯 Best Practices
+✅ Performance Tips
+
+Use in-place operations for large strings to avoid stack overhead
+Pre-allocate adequate buffers to prevent truncation
+Use StrLength() instead of LEN() for strings > 255 bytes
+Check return codes from all in-place operations
+
+✅ Memory Management
+iec// Good: Proper buffer sizing
+VAR
+    sBuffer : STRING(1024);  // Adequate size
+END_VAR
+
+result := StrAppend(sBuffer, SIZEOF(sBuffer), sText);
+
+// Good: Clear unused memory
+StrWipe(sBuffer, SIZEOF(sBuffer));
+✅ Error Handling
+iec// Always check for errors
+IF StrAppend(sBuffer, SIZEOF(sBuffer), sText) <> 0 THEN
+    // Handle error appropriately
+    LogError('Buffer overflow in string operation');
+END_IF
+✅ Format String Safety
+iec// Use typed pointers for safety
+sResult := Format2('Value %i = %6.2f', ADR(iCount), ADR(rValue));
+
+// Not: Untyped addresses that may cause crashes
+🔗 Related Libraries
+
+WagoSysString - Low-level string operations
+WagoAppTime - Date/time manipulation
+WagoSysErrorBase - Error handling framework
+
+📝 License
+This library is part of the WAGO PLC ecosystem. Refer to WAGO licensing terms.
+
+🤝 Contributing
+For issues, improvements, or questions about this library:
+
+Check the WAGO Support Portal
+Consult the official WAGO documentation
+Contact WAGO technical support
+
+
+Last updated: June 2025 | Version 1.6.3.4
