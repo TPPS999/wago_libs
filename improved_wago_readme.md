@@ -4,17 +4,8 @@
 
 [![Documentation Status](https://img.shields.io/badge/docs-complete-brightgreen.svg)](https://github.com/TPPS999/wago_libs)
 [![Libraries](https://img.shields.io/badge/libraries-200%2B-blue.svg)](#available-libraries)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## 🚀 Quick Start
 
-```bash
-# Clone the repository
-git clone https://github.com/TPPS999/wago_libs.git
-
-# Generate merged documentation
-python3 html_merger.py /path/to/wago/libs -s WagoAppSunspec
-```
 
 **Most Popular Categories:**
 - 🏢 [Building Automation](#building-automation--knxeib) - KNX/EIB, BACnet, Room Control
@@ -440,11 +431,6 @@ We welcome contributions to improve this documentation:
 
 ---
 
-## 📜 License
-
-This documentation is provided under the MIT License. See [LICENSE](LICENSE) file for details.
-
----
 
 ## 🏆 Acknowledgments
 
